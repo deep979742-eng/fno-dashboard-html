@@ -7,9 +7,7 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind.config = {
-            darkMode: 'class',
-        }
+        tailwind.config = { darkMode: 'class' }
     </script>
     <!-- ApexCharts & noUiSlider -->
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
@@ -24,16 +22,14 @@
 </head>
 <body class="p-2 sm:p-4 bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200" id="body-tag">
 
-    <!-- TOP CONTROL BAR -->
-    <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center mb-4 bg-white dark:bg-slate-900 p-2 sm:p-3 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 gap-2">
-        <!-- TABS -->
+    <!-- TOP CONTROL BAR (FULL WIDTH) -->
+    <div class="w-full flex flex-wrap justify-between items-center mb-4 bg-white dark:bg-slate-900 p-2 sm:p-3 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 gap-2">
         <div class="flex space-x-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-lg border border-slate-200 dark:border-slate-800">
             <button onclick="switchTab('dash')" id="btn-dash" class="px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold bg-blue-600 text-white transition">📊 Dash</button>
             <button onclick="switchTab('chart')" id="btn-chart" class="px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition">📈 CHART</button>
             <button onclick="switchTab('trend')" id="btn-trend" class="px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition">🚀 TREND</button>
         </div>
 
-        <!-- CONTROLS GROUP (Time, Toggle, Theme) -->
         <div class="flex items-center space-x-2 sm:space-x-3">
             <div id="time-box-container" class="border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 text-cyan-600 dark:text-cyan-400 font-bold text-xs sm:text-sm">
                 ⏱️ <span id="live-time">Waiting...</span>
@@ -44,16 +40,15 @@
                 <input type="checkbox" id="show-pct-toggle" checked onchange="renderDashboard()" class="w-4 h-4 accent-red-500 cursor-pointer">
             </div>
 
-            <!-- THEME TOGGLE BUTTON (Default Light) -->
-            <button onclick="toggleTheme()" id="theme-btn" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-bold text-amber-500 dark:text-yellow-400 transition shadow-sm">
+            <button onclick="toggleTheme()" id="theme-btn" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-bold text-amber-500 transition shadow-sm">
                 ☀️ Light
             </button>
         </div>
     </div>
 
     <!-- VIEW 1: DASHBOARD TABLE -->
-    <div id="view-dash" class="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden">
-        <div class="overflow-x-auto max-h-[78vh]">
+    <div id="view-dash" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden">
+        <div class="overflow-x-auto max-h-[80vh]">
             <table class="w-full text-left border-collapse text-xs sm:text-sm">
                 <thead>
                     <tr class="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-300 dark:border-slate-700">
@@ -79,7 +74,7 @@
     </div>
 
     <!-- VIEW 2: PROFESSIONAL CHART -->
-    <div id="view-chart" class="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 sm:p-6 hidden shadow-2xl">
+    <div id="view-chart" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 sm:p-6 hidden shadow-2xl">
         <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
             <select id="stock-select" onchange="updateChartData()" class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white font-bold text-sm rounded-lg px-3 py-2 w-full sm:w-64 focus:outline-none focus:border-blue-500">
                 <option value="">Select Stock...</option>
@@ -100,22 +95,15 @@
         </div>
     </div>
 
-    <!-- VIEW 3: TREND SCANNER WITH SUB-TABS -->
-    <div id="view-trend" class="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hidden shadow-2xl">
+    <!-- VIEW 3: TREND SCANNER -->
+    <div id="view-trend" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hidden shadow-2xl">
         <h2 class="text-lg font-bold text-cyan-600 dark:text-cyan-400 mb-4">🚀 Divergence Trend Scanner</h2>
-        
-        <!-- SUB-TABS FOR BULLISH / BEARISH -->
         <div class="flex space-x-2 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2">
             <button onclick="switchTrendSubTab('bullish')" id="btn-sub-bull" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-green-600 text-white transition">🟢 Bullish Stocks</button>
             <button onclick="switchTrendSubTab('bearish')" id="btn-sub-bear" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400 transition">🔴 Bearish Stocks</button>
         </div>
-
-        <div id="subtab-bullish" class="overflow-x-auto max-h-[600px]">
-            <p class="text-slate-400 text-xs text-center p-4">Scanning Bullish Stocks...</p>
-        </div>
-        <div id="subtab-bearish" class="overflow-x-auto max-h-[600px] hidden">
-            <p class="text-slate-400 text-xs text-center p-4">Scanning Bearish Stocks...</p>
-        </div>
+        <div id="subtab-bullish" class="overflow-x-auto max-h-[600px]"><p class="text-slate-400 text-xs text-center p-4">Scanning...</p></div>
+        <div id="subtab-bearish" class="overflow-x-auto max-h-[600px] hidden"><p class="text-slate-400 text-xs text-center p-4">Scanning...</p></div>
     </div>
 
     <script>
@@ -131,7 +119,6 @@
         let cachedIndicatorValues = [];
         let cachedLtpValues = [];
 
-        // THEME TOGGLE LOGIC (Default Light)
         function toggleTheme() {
             const body = document.getElementById('body-tag');
             const btn = document.getElementById('theme-btn');
@@ -246,7 +233,16 @@
             filtered.sort((a, b) => a.Time.localeCompare(b.Time));
 
             cachedTimeCategories = filtered.map(i => i.Time);
-            cachedIndicatorValues = filtered.map(i => parseFloat(i[currentChartMode] || 0));
+            
+            // Fixed mapping for indicator values supporting both keys
+            cachedIndicatorValues = filtered.map(i => {
+                let val = i[currentChartMode];
+                if (val === undefined) {
+                    val = i[currentChartMode === 'Vol CPR' ? 'VOL CPR' : 'OPT PCR'];
+                }
+                return parseFloat(val || 0);
+            });
+            
             cachedLtpValues = filtered.map(i => parseFloat(i.LTP || 0));
 
             renderApexChart(cachedTimeCategories, cachedIndicatorValues, cachedLtpValues);
@@ -263,7 +259,7 @@
 
             let options = {
                 series: [{ name: currentChartMode, type: 'area', data: sliceInd }, { name: 'LTP', type: 'line', data: sliceLtp }],
-                chart: { height: 380, type: 'line', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: false }, background: 'transparent' },
+                chart: { height: 420, type: 'line', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: false }, background: 'transparent' },
                 colors: [indColor, '#22c55e'],
                 stroke: { curve: 'smooth', width: [3, 3] },
                 fill: { type: ['gradient', 'solid'], gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 100] } },
@@ -336,7 +332,6 @@
                 }
             });
 
-            // Render Bullish Table
             let bHtml = `<table class="w-full text-xs text-center"><tr class="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-300 dark:border-slate-700"><th class="p-2.5">SYMBOL</th><th class="p-2.5">CHANGE %</th><th class="p-2.5">OPT PCR</th><th class="p-2.5">VOL CPR</th><th class="p-2.5">CE CONTRACT</th></tr>`;
             if(bullishRows.length === 0) {
                 bHtml += `<tr><td colspan="5" class="p-6 text-slate-400">No Bullish Stocks Matched</td></tr>`;
@@ -348,13 +343,12 @@
             bHtml += `</table>`;
             document.getElementById('subtab-bullish').innerHTML = bHtml;
 
-            // Render Bearish Table
             let rHtml = `<table class="w-full text-xs text-center"><tr class="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-300 dark:border-slate-700"><th class="p-2.5">SYMBOL</th><th class="p-2.5">CHANGE %</th><th class="p-2.5">OPT PCR</th><th class="p-2.5">VOL CPR</th><th class="p-2.5">PE CONTRACT</th></tr>`;
             if(bearishRows.length === 0) {
                 rHtml += `<tr><td colspan="5" class="p-6 text-slate-400">No Bearish Stocks Matched</td></tr>`;
             } else {
                 bearishRows.sort((a,b) => b.pe - a.pe).forEach(r => {
-                    rHtml += `<tr class="border-b border-slate-200 dark:border-slate-800"><td class="p-2.5 font-bold">${r.sym}</td><td class="p-2.5 text-red-600 dark:text-red-400 font-bold">${Number(r.chg).toFixed(2)}%</td><td class="p-2.5">${Number(r.pcr).toFixed(2)}</td><td class="p-2.5">${Number(r.cpr).toFixed(2)}</td><td class="p-2.5 text-red-600 dark:text-red-400 font-bold">${Number(r.pe).toFixed(1)}%</td></tr>`;
+                    rHtml += `<tr class="border-b border-slate-200 dark:border-slate-800"><td class="p-2.5 font-bold">${r.sym}</td><td class="p-2.5 text-red-600 dark:text-red-400 font-bold">${Number(r.chg).toFixed(2)}%</td><td class="p-2.5">${Number(r.pcr).toFixed(2)}</td><td class="p-2.5">${Number(r.cpr).toFixed(2)}</td><td class="p-2.5 text-red-600 dark:text-red-400 font-bold">+${Number(r.pe).toFixed(1)}%</td></tr>`;
                 });
             }
             rHtml += `</table>`;
@@ -398,7 +392,6 @@
             });
         }
 
-        // ROBUST FILTER / SORTING LOGIC
         let sortDirections = {};
         function sortTable(columnIndex) {
             const table = document.querySelector("table");
@@ -412,7 +405,6 @@
             rows.sort((rowA, rowB) => {
                 let cellA = rowA.cells[columnIndex].innerText.replace(/[%+,]/g, "").trim();
                 let cellB = rowB.cells[columnIndex].innerText.replace(/[%+,]/g, "").trim();
-
                 let valA = !isNaN(cellA) ? parseFloat(cellA) : cellA;
                 let valB = !isNaN(cellB) ? parseFloat(cellB) : cellB;
 
