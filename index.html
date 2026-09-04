@@ -6,6 +6,11 @@
     <title>F&O Pro Trading Dashboard</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
     <!-- ApexCharts & noUiSlider -->
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.css" rel="stylesheet">
@@ -14,42 +19,44 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
-        body { background-color: #0f172a; color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        th { position: sticky; top: 0; z-index: 20; background-color: #1e293b; cursor: pointer; user-select: none; }
-        th:hover { background-color: #334155; }
-        tr:hover { background-color: rgba(30, 41, 59, 0.5); }
-        .noUi-target { background: #334155; border: none; box-shadow: none; height: 6px; }
-        .noUi-connect { background: #2563eb; }
-        .noUi-handle { width: 20px !important; height: 20px !important; border-radius: 50%; background: #2563eb; border: none; right: -10px !important; top: -7px !important; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
-        .noUi-handle:before, .noUi-handle:after { display: none; }
+        th { position: sticky; top: 0; z-index: 20; cursor: pointer; user-select: none; }
     </style>
 </head>
-<body class="p-2 sm:p-4">
+<body class="p-2 sm:p-4 bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200" id="body-tag">
 
     <!-- TOP CONTROL BAR -->
-    <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center mb-4 bg-slate-800 p-2 sm:p-3 rounded-xl shadow-lg border border-slate-700 gap-2">
-        <div class="flex space-x-1 bg-slate-900 p-1 rounded-lg border border-slate-700">
+    <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center mb-4 bg-white dark:bg-slate-900 p-2 sm:p-3 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 gap-2">
+        <!-- TABS -->
+        <div class="flex space-x-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-lg border border-slate-200 dark:border-slate-800">
             <button onclick="switchTab('dash')" id="btn-dash" class="px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold bg-blue-600 text-white transition">📊 Dash</button>
-            <button onclick="switchTab('chart')" id="btn-chart" class="px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold text-slate-400 hover:text-white transition">📈 CHART</button>
-            <button onclick="switchTab('trend')" id="btn-trend" class="px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold text-slate-400 hover:text-white transition">🚀 TREND</button>
+            <button onclick="switchTab('chart')" id="btn-chart" class="px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition">📈 CHART</button>
+            <button onclick="switchTab('trend')" id="btn-trend" class="px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition">🚀 TREND</button>
         </div>
 
-        <div id="time-box-container" class="border border-slate-700 px-3 py-1.5 rounded-lg bg-slate-900 text-cyan-400 font-bold text-xs sm:text-sm">
-            ⏱️ <span id="live-time">Waiting...</span>
-        </div>
+        <!-- CONTROLS GROUP (Time, Toggle, Theme) -->
+        <div class="flex items-center space-x-2 sm:space-x-3">
+            <div id="time-box-container" class="border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 text-cyan-600 dark:text-cyan-400 font-bold text-xs sm:text-sm">
+                ⏱️ <span id="live-time">Waiting...</span>
+            </div>
 
-        <div id="toggle-container" class="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700">
-            <span class="text-xs font-bold text-red-400">SHOW %</span>
-            <input type="checkbox" id="show-pct-toggle" checked onchange="renderDashboard()" class="w-4 h-4 accent-red-500 cursor-pointer">
+            <div id="toggle-container" class="flex items-center space-x-2 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800">
+                <span class="text-xs font-bold text-red-500">SHOW %</span>
+                <input type="checkbox" id="show-pct-toggle" checked onchange="renderDashboard()" class="w-4 h-4 accent-red-500 cursor-pointer">
+            </div>
+
+            <!-- THEME TOGGLE BUTTON (Default Light) -->
+            <button onclick="toggleTheme()" id="theme-btn" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-bold text-amber-500 dark:text-yellow-400 transition shadow-sm">
+                ☀️ Light
+            </button>
         </div>
     </div>
 
     <!-- VIEW 1: DASHBOARD TABLE -->
-    <div id="view-dash" class="max-w-7xl mx-auto bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
+    <div id="view-dash" class="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden">
         <div class="overflow-x-auto max-h-[78vh]">
             <table class="w-full text-left border-collapse text-xs sm:text-sm">
                 <thead>
-                    <tr class="text-slate-300 border-b border-slate-700">
+                    <tr class="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-300 dark:border-slate-700">
                         <th onclick="sortTable(0)" class="p-3 text-center">SYMBOL ↕</th>
                         <th onclick="sortTable(1)" class="p-3 text-center">OPENING ↕</th>
                         <th onclick="sortTable(2)" class="p-3 text-center">VOL PCR ↕</th>
@@ -64,28 +71,28 @@
                         <th id="col-vol-checker-header" onclick="sortTable(11)" class="p-3 text-center">VOL CHECKER ↕</th>
                     </tr>
                 </thead>
-                <tbody id="table-body" class="divide-y divide-slate-800 font-semibold">
-                    <tr><td colspan="12" class="text-center p-8 text-slate-500">⏳ Waiting for Firebase Data...</td></tr>
+                <tbody id="table-body" class="divide-y divide-slate-200 dark:divide-slate-800 font-semibold">
+                    <tr><td colspan="12" class="text-center p-8 text-slate-400">⏳ Waiting for Firebase Data...</td></tr>
                 </tbody>
             </table>
         </div>
     </div>
 
     <!-- VIEW 2: PROFESSIONAL CHART -->
-    <div id="view-chart" class="max-w-7xl mx-auto bg-slate-900 border border-slate-700 rounded-xl p-3 sm:p-6 hidden shadow-2xl">
+    <div id="view-chart" class="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 sm:p-6 hidden shadow-2xl">
         <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
-            <select id="stock-select" onchange="updateChartData()" class="bg-slate-800 border border-slate-700 text-white font-bold text-sm rounded-lg px-3 py-2 w-full sm:w-64 focus:outline-none focus:border-blue-500">
+            <select id="stock-select" onchange="updateChartData()" class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white font-bold text-sm rounded-lg px-3 py-2 w-full sm:w-64 focus:outline-none focus:border-blue-500">
                 <option value="">Select Stock...</option>
             </select>
-            <div class="flex space-x-2 bg-slate-800 p-1 rounded-lg border border-slate-700">
+            <div class="flex space-x-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-300 dark:border-slate-700">
                 <button onclick="setChartMode('Vol CPR')" id="mode-vol" class="px-3 py-1.5 rounded-md text-xs font-bold bg-red-600 text-white transition">Vol CPR</button>
-                <button onclick="setChartMode('OPT PCR')" id="mode-opt" class="px-3 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white transition">OPT PCR</button>
+                <button onclick="setChartMode('OPT PCR')" id="mode-opt" class="px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition">OPT PCR</button>
             </div>
             <button onclick="resetChartZoom()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3 py-2 rounded-lg transition shadow">🔄 Reset Zoom</button>
         </div>
         <div id="apex-chart-container" class="w-full"></div>
         <div class="mt-6 px-4">
-            <div class="flex justify-between text-xs font-bold text-slate-400 mb-2">
+            <div class="flex justify-between text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">
                 <span id="lbl-start">From: --:--</span>
                 <span id="lbl-end">To: --:--</span>
             </div>
@@ -93,22 +100,21 @@
         </div>
     </div>
 
-    <!-- VIEW 3: TREND SCANNER -->
-    <div id="view-trend" class="max-w-7xl mx-auto bg-slate-900 border border-slate-700 rounded-xl p-4 hidden shadow-2xl">
-        <h2 class="text-lg font-bold text-cyan-400 mb-4">🚀 Divergence Trend Scanner</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="bg-slate-800 p-3 rounded-lg border border-slate-700">
-                <h3 class="text-green-400 font-bold mb-2">🟢 Bullish Stocks</h3>
-                <div id="bullish-container" class="overflow-x-auto max-h-[500px]">
-                    <p class="text-slate-400 text-xs">Scanning...</p>
-                </div>
-            </div>
-            <div class="bg-slate-800 p-3 rounded-lg border border-slate-700">
-                <h3 class="text-red-400 font-bold mb-2">🔴 Bearish Stocks</h3>
-                <div id="bearish-container" class="overflow-x-auto max-h-[500px]">
-                    <p class="text-slate-400 text-xs">Scanning...</p>
-                </div>
-            </div>
+    <!-- VIEW 3: TREND SCANNER WITH SUB-TABS -->
+    <div id="view-trend" class="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hidden shadow-2xl">
+        <h2 class="text-lg font-bold text-cyan-600 dark:text-cyan-400 mb-4">🚀 Divergence Trend Scanner</h2>
+        
+        <!-- SUB-TABS FOR BULLISH / BEARISH -->
+        <div class="flex space-x-2 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2">
+            <button onclick="switchTrendSubTab('bullish')" id="btn-sub-bull" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-green-600 text-white transition">🟢 Bullish Stocks</button>
+            <button onclick="switchTrendSubTab('bearish')" id="btn-sub-bear" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400 transition">🔴 Bearish Stocks</button>
+        </div>
+
+        <div id="subtab-bullish" class="overflow-x-auto max-h-[600px]">
+            <p class="text-slate-400 text-xs text-center p-4">Scanning Bullish Stocks...</p>
+        </div>
+        <div id="subtab-bearish" class="overflow-x-auto max-h-[600px] hidden">
+            <p class="text-slate-400 text-xs text-center p-4">Scanning Bearish Stocks...</p>
         </div>
     </div>
 
@@ -124,6 +130,24 @@
         let cachedTimeCategories = [];
         let cachedIndicatorValues = [];
         let cachedLtpValues = [];
+
+        // THEME TOGGLE LOGIC (Default Light)
+        function toggleTheme() {
+            const body = document.getElementById('body-tag');
+            const btn = document.getElementById('theme-btn');
+            if (body.classList.contains('dark')) {
+                body.classList.remove('dark');
+                btn.innerText = "☀️ Light";
+                btn.className = "px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-bold text-amber-500 transition shadow-sm";
+            } else {
+                body.classList.add('dark');
+                btn.innerText = "🌙 Dark";
+                btn.className = "px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-950 text-xs font-bold text-yellow-400 transition shadow-sm";
+            }
+            if (!document.getElementById('view-chart').classList.contains('hidden')) {
+                updateChartData();
+            }
+        }
 
         firebase.database().ref("Dashboard/Latest").on("value", (snapshot) => {
             const val = snapshot.val();
@@ -155,16 +179,27 @@
         function switchTab(tab) {
             ['dash', 'chart', 'trend'].forEach(t => {
                 document.getElementById(`view-${t}`).classList.add('hidden');
-                document.getElementById(`btn-${t}`).className = "px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold text-slate-400 hover:text-white transition";
+                document.getElementById(`btn-${t}`).className = "px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition";
             });
             document.getElementById(`view-${tab}`).classList.remove('hidden');
             document.getElementById(`btn-${tab}`).className = "px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold bg-blue-600 text-white transition";
             
-            document.getElementById('time-box-container').style.display = (tab === 'dash') ? 'block' : 'none';
-            document.getElementById('toggle-container').style.display = (tab === 'dash') ? 'flex' : 'none';
-
             if (tab === 'chart') {
                 setTimeout(() => { updateChartData(); }, 200);
+            }
+        }
+
+        function switchTrendSubTab(sub) {
+            if (sub === 'bullish') {
+                document.getElementById('subtab-bullish').classList.remove('hidden');
+                document.getElementById('subtab-bearish').classList.add('hidden');
+                document.getElementById('btn-sub-bull').className = "px-4 py-1.5 rounded-lg text-xs font-bold bg-green-600 text-white transition";
+                document.getElementById('btn-sub-bear').className = "px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400 transition";
+            } else {
+                document.getElementById('subtab-bullish').classList.add('hidden');
+                document.getElementById('subtab-bearish').classList.remove('hidden');
+                document.getElementById('btn-sub-bear').className = "px-4 py-1.5 rounded-lg text-xs font-bold bg-red-600 text-white transition";
+                document.getElementById('btn-sub-bull').className = "px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400 transition";
             }
         }
 
@@ -195,10 +230,10 @@
             currentChartMode = mode;
             if (mode === 'Vol CPR') {
                 document.getElementById('mode-vol').className = "px-3 py-1.5 rounded-md text-xs font-bold bg-red-600 text-white transition";
-                document.getElementById('mode-opt').className = "px-3 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white transition";
+                document.getElementById('mode-opt').className = "px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition";
             } else {
                 document.getElementById('mode-opt').className = "px-3 py-1.5 rounded-md text-xs font-bold bg-blue-600 text-white transition";
-                document.getElementById('mode-vol').className = "px-3 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white transition";
+                document.getElementById('mode-vol').className = "px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition";
             }
             updateChartData();
         }
@@ -224,6 +259,7 @@
             let sliceInd = indicatorVals.slice(sIdx, eIdx + 1);
             let sliceLtp = ltpVals.slice(sIdx, eIdx + 1);
             let indColor = currentChartMode === 'Vol CPR' ? '#ef4444' : '#0ea5e9';
+            const isDark = document.getElementById('body-tag').classList.contains('dark');
 
             let options = {
                 series: [{ name: currentChartMode, type: 'area', data: sliceInd }, { name: 'LTP', type: 'line', data: sliceLtp }],
@@ -232,14 +268,14 @@
                 stroke: { curve: 'smooth', width: [3, 3] },
                 fill: { type: ['gradient', 'solid'], gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 100] } },
                 dataLabels: { enabled: false },
-                xaxis: { categories: sliceCats, labels: { style: { colors: '#94a3b8', fontSize: '11px' } }, tickAmount: 10 },
+                xaxis: { categories: sliceCats, labels: { style: { colors: isDark ? '#94a3b8' : '#475569', fontSize: '11px' } }, tickAmount: 10 },
                 yaxis: [
                     { title: { text: currentChartMode, style: { color: indColor } }, labels: { style: { colors: indColor } }, decimalsInFloat: 2 },
                     { opposite: true, title: { text: 'LTP', style: { color: '#22c55e' } }, labels: { style: { colors: '#22c55e' } }, decimalsInFloat: 2 }
                 ],
-                tooltip: { shared: true, intersect: false, theme: 'dark' },
-                legend: { position: 'top', horizontalAlign: 'right', labels: { colors: '#fff' } },
-                grid: { borderColor: '#334155' }
+                tooltip: { shared: true, intersect: false, theme: isDark ? 'dark' : 'light' },
+                legend: { position: 'top', horizontalAlign: 'right', labels: { colors: isDark ? '#fff' : '#000' } },
+                grid: { borderColor: isDark ? '#334155' : '#e2e8f0' }
             };
 
             if (apexChartInstance) apexChartInstance.destroy();
@@ -283,11 +319,8 @@
                 if (sdf.length < 5) return;
 
                 let volSeries = sdf.map(i => parseFloat(i['VOL CPR'] || 0));
-                let pcrSeries = sdf.map(i => parseFloat(i['OPT PCR'] || 0));
-                let ltpSeries = sdf.map(i => parseFloat(i['LTP'] || 0));
-
-                let firstVol = (volSeries[0] + volSeries[1] + volSeries[2] + volSeries[3]) / 4;
                 let lastVol = volSeries[volSeries.length - 1];
+                let firstVol = (volSeries[0] + volSeries[1] + volSeries[2] + volSeries[3]) / 4;
                 let maxVol = Math.max(...volSeries);
                 let minVol = Math.min(...volSeries);
 
@@ -296,26 +329,36 @@
                 let peCon = parseFloat(info.PE_CON || 0);
 
                 if (lastVol > firstVol && lastVol >= maxVol * 0.75 && ceCon >= 70) {
-                    bullishRows.push({ sym, chg: info['CHG_%'] || 0, ce: ceCon });
+                    bullishRows.push({ sym, chg: info['CHG_%'] || 0, pcr: info['O_PCR'] || 0, cpr: info['V_CPR'] || 0, ce: ceCon });
                 }
                 if (lastVol < firstVol && lastVol <= minVol * 1.25 && peCon >= 70) {
-                    bearishRows.push({ sym, chg: info['CHG_%'] || 0, pe: peCon });
+                    bearishRows.push({ sym, chg: info['CHG_%'] || 0, pcr: info['O_PCR'] || 0, cpr: info['V_CPR'] || 0, pe: peCon });
                 }
             });
 
-            let bHtml = `<table class="w-full text-xs text-center"><tr class="border-b border-slate-700 text-slate-400"><th class="p-2">SYMBOL</th><th class="p-2">CHANGE %</th><th class="p-2">CE CON</th></tr>`;
-            bullishRows.forEach(r => {
-                bHtml += `<tr class="border-b border-slate-800"><td class="p-2 font-bold text-white">${r.sym}</td><td class="p-2 text-green-400">+${Number(r.chg).toFixed(2)}%</td><td class="p-2 text-green-400">+${Number(r.ce).toFixed(1)}%</td></tr>`;
-            });
+            // Render Bullish Table
+            let bHtml = `<table class="w-full text-xs text-center"><tr class="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-300 dark:border-slate-700"><th class="p-2.5">SYMBOL</th><th class="p-2.5">CHANGE %</th><th class="p-2.5">OPT PCR</th><th class="p-2.5">VOL CPR</th><th class="p-2.5">CE CONTRACT</th></tr>`;
+            if(bullishRows.length === 0) {
+                bHtml += `<tr><td colspan="5" class="p-6 text-slate-400">No Bullish Stocks Matched</td></tr>`;
+            } else {
+                bullishRows.sort((a,b) => b.ce - a.ce).forEach(r => {
+                    bHtml += `<tr class="border-b border-slate-200 dark:border-slate-800"><td class="p-2.5 font-bold">${r.sym}</td><td class="p-2.5 text-green-600 dark:text-green-400 font-bold">+${Number(r.chg).toFixed(2)}%</td><td class="p-2.5">${Number(r.pcr).toFixed(2)}</td><td class="p-2.5">${Number(r.cpr).toFixed(2)}</td><td class="p-2.5 text-green-600 dark:text-green-400 font-bold">+${Number(r.ce).toFixed(1)}%</td></tr>`;
+                });
+            }
             bHtml += `</table>`;
-            document.getElementById('bullish-container').innerHTML = bullishRows.length ? bHtml : '<p class="text-slate-500 text-xs text-center p-4">No Bullish Stocks Found</p>';
+            document.getElementById('subtab-bullish').innerHTML = bHtml;
 
-            let rHtml = `<table class="w-full text-xs text-center"><tr class="border-b border-slate-700 text-slate-400"><th class="p-2">SYMBOL</th><th class="p-2">CHANGE %</th><th class="p-2">PE CON</th></tr>`;
-            bearishRows.forEach(r => {
-                rHtml += `<tr class="border-b border-slate-800"><td class="p-2 font-bold text-white">${r.sym}</td><td class="p-2 text-red-400">${Number(r.chg).toFixed(2)}%</td><td class="p-2 text-red-400">${Number(r.pe).toFixed(1)}%</td></tr>`;
-            });
+            // Render Bearish Table
+            let rHtml = `<table class="w-full text-xs text-center"><tr class="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-300 dark:border-slate-700"><th class="p-2.5">SYMBOL</th><th class="p-2.5">CHANGE %</th><th class="p-2.5">OPT PCR</th><th class="p-2.5">VOL CPR</th><th class="p-2.5">PE CONTRACT</th></tr>`;
+            if(bearishRows.length === 0) {
+                rHtml += `<tr><td colspan="5" class="p-6 text-slate-400">No Bearish Stocks Matched</td></tr>`;
+            } else {
+                bearishRows.sort((a,b) => b.pe - a.pe).forEach(r => {
+                    rHtml += `<tr class="border-b border-slate-200 dark:border-slate-800"><td class="p-2.5 font-bold">${r.sym}</td><td class="p-2.5 text-red-600 dark:text-red-400 font-bold">${Number(r.chg).toFixed(2)}%</td><td class="p-2.5">${Number(r.pcr).toFixed(2)}</td><td class="p-2.5">${Number(r.cpr).toFixed(2)}</td><td class="p-2.5 text-red-600 dark:text-red-400 font-bold">${Number(r.pe).toFixed(1)}%</td></tr>`;
+                });
+            }
             rHtml += `</table>`;
-            document.getElementById('bearish-container').innerHTML = bearishRows.length ? rHtml : '<p class="text-slate-500 text-xs text-center p-4">No Bearish Stocks Found</p>';
+            document.getElementById('subtab-bearish').innerHTML = rHtml;
         }
 
         function renderDashboard() {
@@ -327,32 +370,61 @@
             let sortedData = [...globalDashboardData].sort((a, b) => (Math.abs(b.CE_CON) + Math.abs(b.PE_CON)) - (Math.abs(a.CE_CON) + Math.abs(a.PE_CON)));
             sortedData.forEach(item => {
                 let row = document.createElement("tr");
-                let openColor = item.OPEN_STATUS.includes("Up") ? "text-green-400" : item.OPEN_STATUS.includes("Down") ? "text-red-400" : "text-cyan-400";
-                let chgColor = item['CHG_%'] > 0 ? "text-green-400" : item['CHG_%'] < 0 ? "text-red-400" : "text-slate-400";
-                let ltpChgColor = item.LTP_CH > 0 ? "text-green-400" : item.LTP_CH < 0 ? "text-red-400" : "text-slate-400";
-                let ceColor = item.CE_CON > 0 ? "text-green-400" : item.CE_CON < 0 ? "text-red-400" : "text-slate-400";
-                let peColor = item.PE_CON > 0 ? "text-green-400" : item.PE_CON < 0 ? "text-red-400" : "text-slate-400";
-                let vPcrColor = item.V_PCR >= 1.0 ? "text-green-400" : "text-red-400";
-                let oPcrColor = item.O_PCR >= 1.0 ? "text-green-400" : "text-red-400";
+                let openColor = item.OPEN_STATUS.includes("Up") ? "text-green-600 dark:text-green-400" : item.OPEN_STATUS.includes("Down") ? "text-red-600 dark:text-red-400" : "text-cyan-600 dark:text-cyan-400";
+                let chgColor = item['CHG_%'] > 0 ? "text-green-600 dark:text-green-400" : item['CHG_%'] < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500";
+                let ltpChgColor = item.LTP_CH > 0 ? "text-green-600 dark:text-green-400" : item.LTP_CH < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500";
+                let ceColor = item.CE_CON > 0 ? "text-green-600 dark:text-green-400" : item.CE_CON < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500";
+                let peColor = item.PE_CON > 0 ? "text-green-600 dark:text-green-400" : item.PE_CON < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500";
+                let vPcrColor = item.V_PCR >= 1.0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
+                let oPcrColor = item.O_PCR >= 1.0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
                 let pcrVal = showPct ? item.PCR_PCT : item.PCR_ABS;
                 let volVal = showPct ? item.VOL_PCT : item.VOL_ABS;
 
                 row.innerHTML = `
-                    <td class="p-3 text-center text-white font-bold">${item.SYMS}</td>
+                    <td class="p-3 text-center font-bold">${item.SYMS}</td>
                     <td class="p-3 text-center ${openColor}">${item.OPEN_STATUS}</td>
                     <td class="p-3 text-center ${vPcrColor}">${Number(item.V_PCR).toFixed(2)}</td>
                     <td class="p-3 text-center ${oPcrColor}">${Number(item.O_PCR).toFixed(2)}</td>
-                    <td class="p-3 text-center text-slate-200">${Number(item.V_CPR).toFixed(2)}</td>
+                    <td class="p-3 text-center">${Number(item.V_CPR).toFixed(2)}</td>
                     <td class="p-3 text-center ${ltpChgColor}">${Number(item.LTP_CH)>=0?'+':''}${Number(item.LTP_CH).toFixed(2)}</td>
                     <td class="p-3 text-center ${chgColor}">${Number(item['CHG_%'])>=0?'+':''}${Number(item['CHG_%']).toFixed(2)}%</td>
-                    <td class="p-3 text-center text-white">${Number(item.LTP).toFixed(2)}</td>
+                    <td class="p-3 text-center">${Number(item.LTP).toFixed(2)}</td>
                     <td class="p-3 text-center ${ceColor}">${Number(item.CE_CON)>=0?'+':''}${Number(item.CE_CON).toFixed(1)}%</td>
                     <td class="p-3 text-center ${peColor}">${Number(item.PE_CON)>=0?'+':''}${Number(item.PE_CON).toFixed(1)}%</td>
-                    <td class="p-3 text-center text-slate-200">${Number(pcrVal).toFixed(2)}${showPct?'%':''}</td>
-                    <td class="p-3 text-center text-slate-200">${Number(volVal).toFixed(2)}${showPct?'%':''}</td>
+                    <td class="p-3 text-center">${Number(pcrVal).toFixed(2)}${showPct?'%':''}</td>
+                    <td class="p-3 text-center">${Number(volVal).toFixed(2)}${showPct?'%':''}</td>
                 `;
                 tbody.appendChild(row);
             });
+        }
+
+        // ROBUST FILTER / SORTING LOGIC
+        let sortDirections = {};
+        function sortTable(columnIndex) {
+            const table = document.querySelector("table");
+            const tbody = table.querySelector("tbody");
+            const rows = Array.from(tbody.querySelectorAll("tr"));
+            
+            if (!sortDirections[columnIndex]) sortDirections[columnIndex] = false;
+            sortDirections[columnIndex] = !sortDirections[columnIndex];
+            let asc = sortDirections[columnIndex];
+
+            rows.sort((rowA, rowB) => {
+                let cellA = rowA.cells[columnIndex].innerText.replace(/[%+,]/g, "").trim();
+                let cellB = rowB.cells[columnIndex].innerText.replace(/[%+,]/g, "").trim();
+
+                let valA = !isNaN(cellA) ? parseFloat(cellA) : cellA;
+                let valB = !isNaN(cellB) ? parseFloat(cellB) : cellB;
+
+                if (typeof valA === 'number' && typeof valB === 'number') {
+                    return asc ? valA - valB : valB - valA;
+                } else {
+                    return asc ? String(valA).localeCompare(String(valB)) : String(valB).localeCompare(String(valA));
+                }
+            });
+
+            tbody.innerHTML = "";
+            rows.forEach(row => tbody.appendChild(row));
         }
     </script>
 </body>
