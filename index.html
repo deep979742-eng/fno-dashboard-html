@@ -4,7 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>F&O Pro Trading Dashboard</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- ApexCharts & noUiSlider -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.js"></script>
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
@@ -12,26 +18,26 @@
         th { position: sticky; top: 0; z-index: 20; background-color: #1e293b; cursor: pointer; user-select: none; }
         th:hover { background-color: #334155; }
         tr:hover { background-color: rgba(30, 41, 59, 0.5); }
+        .noUi-target { background: #334155; border: none; box-shadow: none; height: 6px; }
+        .noUi-connect { background: #2563eb; }
+        .noUi-handle { width: 20px !important; height: 20px !important; border-radius: 50%; background: #2563eb; border: none; right: -10px !important; top: -7px !important; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+        .noUi-handle:before, .noUi-handle:after { display: none; }
     </style>
 </head>
 <body class="p-2 sm:p-4">
 
     <!-- TOP CONTROL BAR -->
     <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center mb-4 bg-slate-800 p-2 sm:p-3 rounded-xl shadow-lg border border-slate-700 gap-2">
-        
-        <!-- TABS -->
         <div class="flex space-x-1 bg-slate-900 p-1 rounded-lg border border-slate-700">
             <button onclick="switchTab('dash')" id="btn-dash" class="px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold bg-blue-600 text-white transition">📊 Dash</button>
             <button onclick="switchTab('chart')" id="btn-chart" class="px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold text-slate-400 hover:text-white transition">📈 CHART</button>
             <button onclick="switchTab('trend')" id="btn-trend" class="px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold text-slate-400 hover:text-white transition">🚀 TREND</button>
         </div>
 
-        <!-- TIME BOX -->
         <div id="time-box-container" class="border border-slate-700 px-3 py-1.5 rounded-lg bg-slate-900 text-cyan-400 font-bold text-xs sm:text-sm">
             ⏱️ <span id="live-time">Waiting...</span>
         </div>
 
-        <!-- SHOW % TOGGLE -->
         <div id="toggle-container" class="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700">
             <span class="text-xs font-bold text-red-400">SHOW %</span>
             <input type="checkbox" id="show-pct-toggle" checked onchange="renderDashboard()" class="w-4 h-4 accent-red-500 cursor-pointer">
@@ -65,31 +71,85 @@
         </div>
     </div>
 
-    <!-- VIEW 2: CHART (Placeholder for future upgrade) -->
-    <div id="view-chart" class="max-w-7xl mx-auto bg-slate-900 border border-slate-700 rounded-xl p-6 hidden text-center">
-        <h2 class="text-lg font-bold text-cyan-400 mb-2">📈 Interactive Chart View</h2>
-        <p class="text-slate-400 text-sm">Chart view is active via Streamlit backend. Use Streamlit for advanced charts.</p>
+    <!-- VIEW 2: PROFESSIONAL CHART -->
+    <div id="view-chart" class="max-w-7xl mx-auto bg-slate-900 border border-slate-700 rounded-xl p-3 sm:p-6 hidden shadow-2xl">
+        <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
+            <select id="stock-select" onchange="updateChartData()" class="bg-slate-800 border border-slate-700 text-white font-bold text-sm rounded-lg px-3 py-2 w-full sm:w-64 focus:outline-none focus:border-blue-500">
+                <option value="">Select Stock...</option>
+            </select>
+            <div class="flex space-x-2 bg-slate-800 p-1 rounded-lg border border-slate-700">
+                <button onclick="setChartMode('Vol CPR')" id="mode-vol" class="px-3 py-1.5 rounded-md text-xs font-bold bg-red-600 text-white transition">Vol CPR</button>
+                <button onclick="setChartMode('OPT PCR')" id="mode-opt" class="px-3 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white transition">OPT PCR</button>
+            </div>
+            <button onclick="resetChartZoom()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3 py-2 rounded-lg transition shadow">🔄 Reset Zoom</button>
+        </div>
+        <div id="apex-chart-container" class="w-full"></div>
+        <div class="mt-6 px-4">
+            <div class="flex justify-between text-xs font-bold text-slate-400 mb-2">
+                <span id="lbl-start">From: --:--</span>
+                <span id="lbl-end">To: --:--</span>
+            </div>
+            <div id="html-slider"></div>
+        </div>
     </div>
 
-    <!-- VIEW 3: TREND -->
-    <div id="view-trend" class="max-w-7xl mx-auto bg-slate-900 border border-slate-700 rounded-xl p-4 hidden">
-        <h2 class="text-lg font-bold text-cyan-400 mb-2">🚀 Divergence Trend Scanner</h2>
-        <p class="text-slate-400 text-sm">Trend analysis is running smoothly on your backend engine.</p>
+    <!-- VIEW 3: TREND SCANNER -->
+    <div id="view-trend" class="max-w-7xl mx-auto bg-slate-900 border border-slate-700 rounded-xl p-4 hidden shadow-2xl">
+        <h2 class="text-lg font-bold text-cyan-400 mb-4">🚀 Divergence Trend Scanner</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-slate-800 p-3 rounded-lg border border-slate-700">
+                <h3 class="text-green-400 font-bold mb-2">🟢 Bullish Stocks</h3>
+                <div id="bullish-container" class="overflow-x-auto max-h-[500px]">
+                    <p class="text-slate-400 text-xs">Scanning...</p>
+                </div>
+            </div>
+            <div class="bg-slate-800 p-3 rounded-lg border border-slate-700">
+                <h3 class="text-red-400 font-bold mb-2">🔴 Bearish Stocks</h3>
+                <div id="bearish-container" class="overflow-x-auto max-h-[500px]">
+                    <p class="text-slate-400 text-xs">Scanning...</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
         const FIREBASE_URL = "https://fyers-bot-606b9-default-rtdb.firebaseio.com";
         firebase.initializeApp({ databaseURL: FIREBASE_URL });
         
-        let globalData = [];
+        let globalDashboardData = [];
+        let globalChartRawData = [];
+        let currentChartMode = 'Vol CPR';
+        let apexChartInstance = null;
+        let sliderInstance = null;
+        let cachedTimeCategories = [];
+        let cachedIndicatorValues = [];
+        let cachedLtpValues = [];
 
         firebase.database().ref("Dashboard/Latest").on("value", (snapshot) => {
             const val = snapshot.val();
             if (!val) return;
-
             document.getElementById("live-time").innerText = new Date(val.time * 1000).toLocaleTimeString();
-            globalData = val.data || [];
+            globalDashboardData = val.data || [];
             renderDashboard();
+            populateStockDropdown();
+            runTrendScanner();
+        });
+
+        firebase.database().ref("ChartHistory").on("value", (snapshot) => {
+            const val = snapshot.val();
+            if (!val) return;
+            let rows = [];
+            const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            Object.keys(val).forEach(key => {
+                if (key.startsWith(todayStr) && val[key].data) {
+                    rows = rows.concat(val[key].data);
+                }
+            });
+            globalChartRawData = rows;
+            if (!document.getElementById('view-chart').classList.contains('hidden')) {
+                updateChartData();
+            }
+            runTrendScanner();
         });
 
         function switchTab(tab) {
@@ -100,44 +160,182 @@
             document.getElementById(`view-${tab}`).classList.remove('hidden');
             document.getElementById(`btn-${tab}`).className = "px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold bg-blue-600 text-white transition";
             
-            // Toggle visibility of extra control boxes based on tab
             document.getElementById('time-box-container').style.display = (tab === 'dash') ? 'block' : 'none';
             document.getElementById('toggle-container').style.display = (tab === 'dash') ? 'flex' : 'none';
+
+            if (tab === 'chart') {
+                setTimeout(() => { updateChartData(); }, 200);
+            }
+        }
+
+        function populateStockDropdown() {
+            const select = document.getElementById("stock-select");
+            const currentSelected = select.value;
+            select.innerHTML = "";
+            let symbols = [];
+            if (globalDashboardData.length > 0) {
+                symbols = globalDashboardData.map(i => i.SYMS || i.SYMBOL).filter(Boolean);
+            } else if (globalChartRawData.length > 0) {
+                symbols = [...new Set(globalChartRawData.map(i => i.Symbol))];
+            }
+            symbols.sort().forEach(sym => {
+                let opt = document.createElement("option");
+                opt.value = sym;
+                opt.innerText = sym;
+                select.appendChild(opt);
+            });
+            if (currentSelected && symbols.includes(currentSelected)) {
+                select.value = currentSelected;
+            } else if (symbols.length > 0) {
+                select.value = symbols[0];
+            }
+        }
+
+        function setChartMode(mode) {
+            currentChartMode = mode;
+            if (mode === 'Vol CPR') {
+                document.getElementById('mode-vol').className = "px-3 py-1.5 rounded-md text-xs font-bold bg-red-600 text-white transition";
+                document.getElementById('mode-opt').className = "px-3 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white transition";
+            } else {
+                document.getElementById('mode-opt').className = "px-3 py-1.5 rounded-md text-xs font-bold bg-blue-600 text-white transition";
+                document.getElementById('mode-vol').className = "px-3 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white transition";
+            }
+            updateChartData();
+        }
+
+        function updateChartData() {
+            const selectedStock = document.getElementById("stock-select").value;
+            if (!selectedStock || globalChartRawData.length === 0) return;
+
+            let filtered = globalChartRawData.filter(i => i.Symbol === selectedStock);
+            filtered.sort((a, b) => a.Time.localeCompare(b.Time));
+
+            cachedTimeCategories = filtered.map(i => i.Time);
+            cachedIndicatorValues = filtered.map(i => parseFloat(i[currentChartMode] || 0));
+            cachedLtpValues = filtered.map(i => parseFloat(i.LTP || 0));
+
+            renderApexChart(cachedTimeCategories, cachedIndicatorValues, cachedLtpValues);
+            setupHtmlSlider(cachedTimeCategories);
+        }
+
+        function renderApexChart(categories, indicatorVals, ltpVals, sIdx = 0, eIdx = null) {
+            if (eIdx === null) eIdx = categories.length - 1;
+            let sliceCats = categories.slice(sIdx, eIdx + 1);
+            let sliceInd = indicatorVals.slice(sIdx, eIdx + 1);
+            let sliceLtp = ltpVals.slice(sIdx, eIdx + 1);
+            let indColor = currentChartMode === 'Vol CPR' ? '#ef4444' : '#0ea5e9';
+
+            let options = {
+                series: [{ name: currentChartMode, type: 'area', data: sliceInd }, { name: 'LTP', type: 'line', data: sliceLtp }],
+                chart: { height: 380, type: 'line', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: false }, background: 'transparent' },
+                colors: [indColor, '#22c55e'],
+                stroke: { curve: 'smooth', width: [3, 3] },
+                fill: { type: ['gradient', 'solid'], gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 100] } },
+                dataLabels: { enabled: false },
+                xaxis: { categories: sliceCats, labels: { style: { colors: '#94a3b8', fontSize: '11px' } }, tickAmount: 10 },
+                yaxis: [
+                    { title: { text: currentChartMode, style: { color: indColor } }, labels: { style: { colors: indColor } }, decimalsInFloat: 2 },
+                    { opposite: true, title: { text: 'LTP', style: { color: '#22c55e' } }, labels: { style: { colors: '#22c55e' } }, decimalsInFloat: 2 }
+                ],
+                tooltip: { shared: true, intersect: false, theme: 'dark' },
+                legend: { position: 'top', horizontalAlign: 'right', labels: { colors: '#fff' } },
+                grid: { borderColor: '#334155' }
+            };
+
+            if (apexChartInstance) apexChartInstance.destroy();
+            apexChartInstance = new ApexCharts(document.querySelector("#apex-chart-container"), options);
+            apexChartInstance.render();
+        }
+
+        function setupHtmlSlider(categories) {
+            const sliderEl = document.getElementById('html-slider');
+            if (categories.length === 0) return;
+            if (sliderInstance && sliderInstance.noUiSlider) sliderInstance.noUiSlider.destroy();
+
+            if (categories.length > 1) {
+                noUiSlider.create(sliderEl, { start: [0, categories.length - 1], connect: true, range: { 'min': 0, 'max': categories.length - 1 }, step: 1 });
+                sliderInstance = sliderEl;
+                sliderEl.noUiSlider.on('update', function (values) {
+                    let sIdx = parseInt(values[0]), eIdx = parseInt(values[1]);
+                    document.getElementById('lbl-start').innerText = "From: " + categories[sIdx];
+                    document.getElementById('lbl-end').innerText = "To: " + categories[eIdx];
+                    renderApexChart(cachedTimeCategories, cachedIndicatorValues, cachedLtpValues, sIdx, eIdx);
+                });
+            }
+        }
+
+        function resetChartZoom() {
+            if (sliderInstance && sliderInstance.noUiSlider && cachedTimeCategories.length > 0) {
+                sliderInstance.noUiSlider.set([0, cachedTimeCategories.length - 1]);
+            }
+        }
+
+        function runTrendScanner() {
+            if (globalChartRawData.length === 0 || globalDashboardData.length === 0) return;
+            let latestLookup = {};
+            globalDashboardData.forEach(item => { latestLookup[item.SYMS || item.SYMBOL] = item; });
+            
+            let symbols = [...new Set(globalChartRawData.map(i => i.Symbol))];
+            let bullishRows = [], bearishRows = [];
+
+            symbols.forEach(sym => {
+                let sdf = globalChartRawData.filter(i => i.Symbol === sym).sort((a, b) => a.Time.localeCompare(b.Time));
+                if (sdf.length < 5) return;
+
+                let volSeries = sdf.map(i => parseFloat(i['VOL CPR'] || 0));
+                let pcrSeries = sdf.map(i => parseFloat(i['OPT PCR'] || 0));
+                let ltpSeries = sdf.map(i => parseFloat(i['LTP'] || 0));
+
+                let firstVol = (volSeries[0] + volSeries[1] + volSeries[2] + volSeries[3]) / 4;
+                let lastVol = volSeries[volSeries.length - 1];
+                let maxVol = Math.max(...volSeries);
+                let minVol = Math.min(...volSeries);
+
+                let info = latestLookup[sym] || {};
+                let ceCon = parseFloat(info.CE_CON || 0);
+                let peCon = parseFloat(info.PE_CON || 0);
+
+                if (lastVol > firstVol && lastVol >= maxVol * 0.75 && ceCon >= 70) {
+                    bullishRows.push({ sym, chg: info['CHG_%'] || 0, ce: ceCon });
+                }
+                if (lastVol < firstVol && lastVol <= minVol * 1.25 && peCon >= 70) {
+                    bearishRows.push({ sym, chg: info['CHG_%'] || 0, pe: peCon });
+                }
+            });
+
+            let bHtml = `<table class="w-full text-xs text-center"><tr class="border-b border-slate-700 text-slate-400"><th class="p-2">SYMBOL</th><th class="p-2">CHANGE %</th><th class="p-2">CE CON</th></tr>`;
+            bullishRows.forEach(r => {
+                bHtml += `<tr class="border-b border-slate-800"><td class="p-2 font-bold text-white">${r.sym}</td><td class="p-2 text-green-400">+${Number(r.chg).toFixed(2)}%</td><td class="p-2 text-green-400">+${Number(r.ce).toFixed(1)}%</td></tr>`;
+            });
+            bHtml += `</table>`;
+            document.getElementById('bullish-container').innerHTML = bullishRows.length ? bHtml : '<p class="text-slate-500 text-xs text-center p-4">No Bullish Stocks Found</p>';
+
+            let rHtml = `<table class="w-full text-xs text-center"><tr class="border-b border-slate-700 text-slate-400"><th class="p-2">SYMBOL</th><th class="p-2">CHANGE %</th><th class="p-2">PE CON</th></tr>`;
+            bearishRows.forEach(r => {
+                rHtml += `<tr class="border-b border-slate-800"><td class="p-2 font-bold text-white">${r.sym}</td><td class="p-2 text-red-400">${Number(r.chg).toFixed(2)}%</td><td class="p-2 text-red-400">${Number(r.pe).toFixed(1)}%</td></tr>`;
+            });
+            rHtml += `</table>`;
+            document.getElementById('bearish-container').innerHTML = bearishRows.length ? rHtml : '<p class="text-slate-500 text-xs text-center p-4">No Bearish Stocks Found</p>';
         }
 
         function renderDashboard() {
             const showPct = document.getElementById("show-pct-toggle").checked;
             const tbody = document.getElementById("table-body");
             tbody.innerHTML = "";
+            if (globalDashboardData.length === 0) return;
 
-            if (globalData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="12" class="text-center p-8 text-slate-500">⏳ No Data Available.</td></tr>`;
-                return;
-            }
-
-            // Update column headers dynamically based on Show % toggle
-            document.getElementById("col-checker-header").innerText = showPct ? "PCR CHECKER %" : "PCR CHECKER ABS";
-            document.getElementById("col-vol-checker-header").innerText = showPct ? "VOL CHECKER %" : "VOL CHECKER ABS";
-
-            // Sort by conviction rank
-            let sortedData = [...globalData].sort((a, b) => (Math.abs(b.CE_CON) + Math.abs(b.PE_CON)) - (Math.abs(a.CE_CON) + Math.abs(a.PE_CON)));
-
+            let sortedData = [...globalDashboardData].sort((a, b) => (Math.abs(b.CE_CON) + Math.abs(b.PE_CON)) - (Math.abs(a.CE_CON) + Math.abs(a.PE_CON)));
             sortedData.forEach(item => {
                 let row = document.createElement("tr");
-                
                 let openColor = item.OPEN_STATUS.includes("Up") ? "text-green-400" : item.OPEN_STATUS.includes("Down") ? "text-red-400" : "text-cyan-400";
                 let chgColor = item['CHG_%'] > 0 ? "text-green-400" : item['CHG_%'] < 0 ? "text-red-400" : "text-slate-400";
                 let ltpChgColor = item.LTP_CH > 0 ? "text-green-400" : item.LTP_CH < 0 ? "text-red-400" : "text-slate-400";
                 let ceColor = item.CE_CON > 0 ? "text-green-400" : item.CE_CON < 0 ? "text-red-400" : "text-slate-400";
                 let peColor = item.PE_CON > 0 ? "text-green-400" : item.PE_CON < 0 ? "text-red-400" : "text-slate-400";
-                
                 let vPcrColor = item.V_PCR >= 1.0 ? "text-green-400" : "text-red-400";
                 let oPcrColor = item.O_PCR >= 1.0 ? "text-green-400" : "text-red-400";
-
-                let pcrCheckerVal = showPct ? item.PCR_PCT : item.PCR_ABS;
-                let volCheckerVal = showPct ? item.VOL_PCT : item.VOL_ABS;
-                let pcrCheckColor = pcrCheckerVal > 0 ? "text-green-400" : pcrCheckerVal < 0 ? "text-red-400" : "text-slate-400";
-                let volCheckColor = volCheckerVal > 0 ? "text-green-400" : volCheckerVal < 0 ? "text-red-400" : "text-slate-400";
+                let pcrVal = showPct ? item.PCR_PCT : item.PCR_ABS;
+                let volVal = showPct ? item.VOL_PCT : item.VOL_ABS;
 
                 row.innerHTML = `
                     <td class="p-3 text-center text-white font-bold">${item.SYMS}</td>
@@ -145,41 +343,16 @@
                     <td class="p-3 text-center ${vPcrColor}">${Number(item.V_PCR).toFixed(2)}</td>
                     <td class="p-3 text-center ${oPcrColor}">${Number(item.O_PCR).toFixed(2)}</td>
                     <td class="p-3 text-center text-slate-200">${Number(item.V_CPR).toFixed(2)}</td>
-                    <td class="p-3 text-center ${ltpChgColor}">${Number(item.LTP_CH) >= 0 ? '+' : ''}${Number(item.LTP_CH).toFixed(2)}</td>
-                    <td class="p-3 text-center ${chgColor}">${Number(item['CHG_%']) >= 0 ? '+' : ''}${Number(item['CHG_%']).toFixed(2)}%</td>
+                    <td class="p-3 text-center ${ltpChgColor}">${Number(item.LTP_CH)>=0?'+':''}${Number(item.LTP_CH).toFixed(2)}</td>
+                    <td class="p-3 text-center ${chgColor}">${Number(item['CHG_%'])>=0?'+':''}${Number(item['CHG_%']).toFixed(2)}%</td>
                     <td class="p-3 text-center text-white">${Number(item.LTP).toFixed(2)}</td>
-                    <td class="p-3 text-center ${ceColor}">${Number(item.CE_CON) >= 0 ? '+' : ''}${Number(item.CE_CON).toFixed(1)}%</td>
-                    <td class="p-3 text-center ${peColor}">${Number(item.PE_CON) >= 0 ? '+' : ''}${Number(item.PE_CON).toFixed(1)}%</td>
-                    <td class="p-3 text-center ${pcrCheckColor}">${Number(pcrCheckerVal) >= 0 ? '+' : ''}${Number(pcrCheckerVal).toFixed(2)}${showPct?'%':''}</td>
-                    <td class="p-3 text-center ${volCheckColor}">${Number(volCheckerVal) >= 0 ? '+' : ''}${Number(volCheckerVal).toFixed(2)}${showPct?'%':''}</td>
+                    <td class="p-3 text-center ${ceColor}">${Number(item.CE_CON)>=0?'+':''}${Number(item.CE_CON).toFixed(1)}%</td>
+                    <td class="p-3 text-center ${peColor}">${Number(item.PE_CON)>=0?'+':''}${Number(item.PE_CON).toFixed(1)}%</td>
+                    <td class="p-3 text-center text-slate-200">${Number(pcrVal).toFixed(2)}${showPct?'%':''}</td>
+                    <td class="p-3 text-center text-slate-200">${Number(volVal).toFixed(2)}${showPct?'%':''}</td>
                 `;
                 tbody.appendChild(row);
             });
-        }
-
-        // Sorting functionality for table headers
-        let sortDirection = false;
-        function sortTable(columnIndex) {
-            const table = document.querySelector("table");
-            const tbody = table.querySelector("tbody");
-            const rows = Array.from(tbody.querySelectorAll("tr"));
-            
-            sortDirection = !sortDirection;
-
-            rows.sort((rowA, rowB) => {
-                let cellA = rowA.cells[columnIndex].innerText.replace(/[%+,]/g, "").trim();
-                let cellB = rowB.cells[columnIndex].innerText.replace(/[%+,]/g, "").trim();
-
-                let valA = !isNaN(cellA) ? parseFloat(cellA) : cellA;
-                let valB = !isNaN(cellB) ? parseFloat(cellB) : cellB;
-
-                if (valA > valB) return sortDirection ? 1 : -1;
-                if (valA < valB) return sortDirection ? -1 : 1;
-                return 0;
-            });
-
-            tbody.innerHTML = "";
-            rows.forEach(row => tbody.appendChild(row));
         }
     </script>
 </body>
