@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F&O Live Trading Dashboard</title>
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        th { position: sticky; top: 0; z-index: 20; background-color: #1e293b; cursor: pointer; }
+        tr:hover { background-color: rgba(30, 41, 59, 0.5); }
+    </style>
+</head>
+<body class="p-2 sm:p-4">
+
+    <!-- HEADER BAR -->
+    <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center mb-4 bg-slate-800 p-3 rounded-xl shadow-lg border border-slate-700">
+        <div class="flex items-center space-x-3">
+            <h1 class="text-xl font-bold text-cyan-400">🚀 F&O PRO DASHBOARD</h1>
+            <span id="live-time" class="text-xs bg-slate-700 px-2.5 py-1 rounded-md text-cyan-300 font-mono">⏱️ Connecting...</span>
+        </div>
+        <div class="text-xs text-slate-400">
+            Status: <span id="conn-status" class="text-yellow-400 font-bold">Connecting to Firebase...</span>
+        </div>
+    </div>
+
+    <!-- DATA TABLE CONTAINER -->
+    <div class="max-w-7xl mx-auto bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
+        <div class="overflow-x-auto max-h-[80vh]">
+            <table id="stock-table" class="w-full text-left border-collapse text-xs sm:text-sm">
+                <thead>
+                    <tr class="text-slate-300 border-b border-slate-700">
+                        <th class="p-3 text-center">SYMBOL</th>
+                        <th class="p-3 text-center">OPENING</th>
+                        <th class="p-3 text-center">VOL PCR</th>
+                        <th class="p-3 text-center">OPT PCR</th>
+                        <th class="p-3 text-center">VOL CPR</th>
+                        <th class="p-3 text-center">LTP CHANGE</th>
+                        <th class="p-3 text-center">CHANGE %</th>
+                        <th class="p-3 text-center">LTP</th>
+                        <th class="p-3 text-center">CE CONTRACT</th>
+                        <th class="p-3 text-center">PE CONTRACT</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body" class="divide-y divide-slate-800 font-semibold">
+                    <tr><td colspan="10" class="text-center p-8 text-slate-500">⏳ Waiting for Firebase Data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT FOR REAL-TIME FIREBASE SYNC -->
+    <script>
+        // Your Firebase Database URL
+        const FIREBASE_URL = "https://fyers-bot-606b9-default-rtdb.firebaseio.com";
+
+        // Initialize Firebase Realtime Database connection
+        firebase.initializeApp({ databaseURL: FIREBASE_URL });
+        const dbRef = firebase.database().ref("Dashboard/Latest");
+
+        // Listen for real-time updates from Firebase (Zero lag!)
+        dbRef.on("value", (snapshot) => {
+            const val = snapshot.val();
+            if (!val) return;
+
+            // Update Time & Status
+            const scanTime = new Date(val.time * 1000).toLocaleTimeString();
+            document.getElementById("live-time").innerText = `⏱️ ${scanTime}`;
+            document.getElementById("conn-status").innerText = "● LIVE SYNCED";
+            document.getElementById("conn-status").className = "text-green-400 font-bold animate-pulse";
+
+            const dataList = val.data || [];
+            const tbody = document.getElementById("table-body");
+            tbody.innerHTML = "";
+
+            if (dataList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="text-center p-8 text-slate-500">⏳ No Data Available Yet.</td></tr>`;
+                return;
+            }
+
+            // Sort by Conv_Rank (CE_CON + PE_CON absolute sum)
+            dataList.sort((a, b) => (Math.abs(b.CE_CON) + Math.abs(b.PE_CON)) - (Math.abs(a.CE_CON) + Math.abs(a.PE_CON)));
+
+            dataList.forEach(item => {
+                let row = document.createElement("tr");
+                
+                // Color formatting helpers
+                let openColor = item.OPEN_STATUS.includes("Up") ? "text-green-400" : item.OPEN_STATUS.includes("Down") ? "text-red-400" : "text-cyan-400";
+                let chgColor = item['CHG_%'] > 0 ? "text-green-400" : item['CHG_%'] < 0 ? "text-red-400" : "text-slate-400";
+                let ltpChgColor = item.LTP_CH > 0 ? "text-green-400" : item.LTP_CH < 0 ? "text-red-400" : "text-slate-400";
+                let ceColor = item.CE_CON > 0 ? "text-green-400" : item.CE_CON < 0 ? "text-red-400" : "text-slate-400";
+                let peColor = item.PE_CON > 0 ? "text-green-400" : item.PE_CON < 0 ? "text-red-400" : "text-slate-400";
+                
+                let vPcrColor = item.V_PCR >= 1.0 ? "text-green-400" : "text-red-400";
+                let oPcrColor = item.O_PCR >= 1.0 ? "text-green-400" : "text-red-400";
+
+                row.innerHTML = `
+                    <td class="p-3 text-center text-white font-bold">${item.SYMS}</td>
+                    <td class="p-3 text-center ${openColor}">${item.OPEN_STATUS}</td>
+                    <td class="p-3 text-center ${vPcrColor}">${Number(item.V_PCR).toFixed(2)}</td>
+                    <td class="p-3 text-center ${oPcrColor}">${Number(item.O_PCR).toFixed(2)}</td>
+                    <td class="p-3 text-center text-slate-200">${Number(item.V_CPR).toFixed(2)}</td>
+                    <td class="p-3 text-center ${ltpChgColor}">${Number(item.LTP_CH) >= 0 ? '+' : ''}${Number(item.LTP_CH).toFixed(2)}</td>
+                    <td class="p-3 text-center ${chgColor}">${Number(item['CHG_%']) >= 0 ? '+' : ''}${Number(item['CHG_%']).toFixed(2)}%</td>
+                    <td class="p-3 text-center text-white">${Number(item.LTP).toFixed(2)}</td>
+                    <td class="p-3 text-center ${ceColor}">${Number(item.CE_CON) >= 0 ? '+' : ''}${Number(item.CE_CON).toFixed(1)}%</td>
+                    <td class="p-3 text-center ${peColor}">${Number(item.PE_CON) >= 0 ? '+' : ''}${Number(item.PE_CON).toFixed(1)}%</td>
+                `;
+                tbody.appendChild(row);
+            });
+        });
+    </script>
+</body>
+</html>
