@@ -3,92 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>F&O Live Trading Dashboard</title>
-    <!-- Tailwind CSS for modern styling -->
+    <title>F&O Pro Trading Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
         body { background-color: #0f172a; color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        th { position: sticky; top: 0; z-index: 20; background-color: #1e293b; cursor: pointer; }
+        th { position: sticky; top: 0; z-index: 20; background-color: #1e293b; cursor: pointer; user-select: none; }
+        th:hover { background-color: #334155; }
         tr:hover { background-color: rgba(30, 41, 59, 0.5); }
     </style>
 </head>
 <body class="p-2 sm:p-4">
 
-    <!-- HEADER BAR -->
-    <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center mb-4 bg-slate-800 p-3 rounded-xl shadow-lg border border-slate-700">
-        <div class="flex items-center space-x-3">
-            <h1 class="text-xl font-bold text-cyan-400">🚀 F&O PRO DASHBOARD</h1>
-            <span id="live-time" class="text-xs bg-slate-700 px-2.5 py-1 rounded-md text-cyan-300 font-mono">⏱️ Connecting...</span>
+    <!-- TOP CONTROL BAR -->
+    <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center mb-4 bg-slate-800 p-2 sm:p-3 rounded-xl shadow-lg border border-slate-700 gap-2">
+        
+        <!-- TABS -->
+        <div class="flex space-x-1 bg-slate-900 p-1 rounded-lg border border-slate-700">
+            <button onclick="switchTab('dash')" id="btn-dash" class="px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold bg-blue-600 text-white transition">📊 Dash</button>
+            <button onclick="switchTab('chart')" id="btn-chart" class="px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold text-slate-400 hover:text-white transition">📈 CHART</button>
+            <button onclick="switchTab('trend')" id="btn-trend" class="px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold text-slate-400 hover:text-white transition">🚀 TREND</button>
         </div>
-        <div class="text-xs text-slate-400">
-            Status: <span id="conn-status" class="text-yellow-400 font-bold">Connecting to Firebase...</span>
+
+        <!-- TIME BOX -->
+        <div id="time-box-container" class="border border-slate-700 px-3 py-1.5 rounded-lg bg-slate-900 text-cyan-400 font-bold text-xs sm:text-sm">
+            ⏱️ <span id="live-time">Waiting...</span>
+        </div>
+
+        <!-- SHOW % TOGGLE -->
+        <div id="toggle-container" class="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700">
+            <span class="text-xs font-bold text-red-400">SHOW %</span>
+            <input type="checkbox" id="show-pct-toggle" checked onchange="renderDashboard()" class="w-4 h-4 accent-red-500 cursor-pointer">
         </div>
     </div>
 
-    <!-- DATA TABLE CONTAINER -->
-    <div class="max-w-7xl mx-auto bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
-        <div class="overflow-x-auto max-h-[80vh]">
-            <table id="stock-table" class="w-full text-left border-collapse text-xs sm:text-sm">
+    <!-- VIEW 1: DASHBOARD TABLE -->
+    <div id="view-dash" class="max-w-7xl mx-auto bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
+        <div class="overflow-x-auto max-h-[78vh]">
+            <table class="w-full text-left border-collapse text-xs sm:text-sm">
                 <thead>
                     <tr class="text-slate-300 border-b border-slate-700">
-                        <th class="p-3 text-center">SYMBOL</th>
-                        <th class="p-3 text-center">OPENING</th>
-                        <th class="p-3 text-center">VOL PCR</th>
-                        <th class="p-3 text-center">OPT PCR</th>
-                        <th class="p-3 text-center">VOL CPR</th>
-                        <th class="p-3 text-center">LTP CHANGE</th>
-                        <th class="p-3 text-center">CHANGE %</th>
-                        <th class="p-3 text-center">LTP</th>
-                        <th class="p-3 text-center">CE CONTRACT</th>
-                        <th class="p-3 text-center">PE CONTRACT</th>
+                        <th onclick="sortTable(0)" class="p-3 text-center">SYMBOL ↕</th>
+                        <th onclick="sortTable(1)" class="p-3 text-center">OPENING ↕</th>
+                        <th onclick="sortTable(2)" class="p-3 text-center">VOL PCR ↕</th>
+                        <th onclick="sortTable(3)" class="p-3 text-center">OPTION PCR ↕</th>
+                        <th onclick="sortTable(4)" class="p-3 text-center">VOL CPR ↕</th>
+                        <th onclick="sortTable(5)" class="p-3 text-center">LTP CHANGE ↕</th>
+                        <th onclick="sortTable(6)" class="p-3 text-center">CHANGE % ↕</th>
+                        <th onclick="sortTable(7)" class="p-3 text-center">LTP ↕</th>
+                        <th onclick="sortTable(8)" class="p-3 text-center">CE CONTRACT ↕</th>
+                        <th onclick="sortTable(9)" class="p-3 text-center">PE CONTRACT ↕</th>
+                        <th id="col-checker-header" onclick="sortTable(10)" class="p-3 text-center">PCR CHECKER ↕</th>
+                        <th id="col-vol-checker-header" onclick="sortTable(11)" class="p-3 text-center">VOL CHECKER ↕</th>
                     </tr>
                 </thead>
                 <tbody id="table-body" class="divide-y divide-slate-800 font-semibold">
-                    <tr><td colspan="10" class="text-center p-8 text-slate-500">⏳ Waiting for Firebase Data...</td></tr>
+                    <tr><td colspan="12" class="text-center p-8 text-slate-500">⏳ Waiting for Firebase Data...</td></tr>
                 </tbody>
             </table>
         </div>
     </div>
 
-    <!-- JAVASCRIPT FOR REAL-TIME FIREBASE SYNC -->
+    <!-- VIEW 2: CHART (Placeholder for future upgrade) -->
+    <div id="view-chart" class="max-w-7xl mx-auto bg-slate-900 border border-slate-700 rounded-xl p-6 hidden text-center">
+        <h2 class="text-lg font-bold text-cyan-400 mb-2">📈 Interactive Chart View</h2>
+        <p class="text-slate-400 text-sm">Chart view is active via Streamlit backend. Use Streamlit for advanced charts.</p>
+    </div>
+
+    <!-- VIEW 3: TREND -->
+    <div id="view-trend" class="max-w-7xl mx-auto bg-slate-900 border border-slate-700 rounded-xl p-4 hidden">
+        <h2 class="text-lg font-bold text-cyan-400 mb-2">🚀 Divergence Trend Scanner</h2>
+        <p class="text-slate-400 text-sm">Trend analysis is running smoothly on your backend engine.</p>
+    </div>
+
     <script>
-        // Your Firebase Database URL
         const FIREBASE_URL = "https://fyers-bot-606b9-default-rtdb.firebaseio.com";
-
-        // Initialize Firebase Realtime Database connection
         firebase.initializeApp({ databaseURL: FIREBASE_URL });
-        const dbRef = firebase.database().ref("Dashboard/Latest");
+        
+        let globalData = [];
 
-        // Listen for real-time updates from Firebase (Zero lag!)
-        dbRef.on("value", (snapshot) => {
+        firebase.database().ref("Dashboard/Latest").on("value", (snapshot) => {
             const val = snapshot.val();
             if (!val) return;
 
-            // Update Time & Status
-            const scanTime = new Date(val.time * 1000).toLocaleTimeString();
-            document.getElementById("live-time").innerText = `⏱️ ${scanTime}`;
-            document.getElementById("conn-status").innerText = "● LIVE SYNCED";
-            document.getElementById("conn-status").className = "text-green-400 font-bold animate-pulse";
+            document.getElementById("live-time").innerText = new Date(val.time * 1000).toLocaleTimeString();
+            globalData = val.data || [];
+            renderDashboard();
+        });
 
-            const dataList = val.data || [];
+        function switchTab(tab) {
+            ['dash', 'chart', 'trend'].forEach(t => {
+                document.getElementById(`view-${t}`).classList.add('hidden');
+                document.getElementById(`btn-${t}`).className = "px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold text-slate-400 hover:text-white transition";
+            });
+            document.getElementById(`view-${tab}`).classList.remove('hidden');
+            document.getElementById(`btn-${tab}`).className = "px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold bg-blue-600 text-white transition";
+            
+            // Toggle visibility of extra control boxes based on tab
+            document.getElementById('time-box-container').style.display = (tab === 'dash') ? 'block' : 'none';
+            document.getElementById('toggle-container').style.display = (tab === 'dash') ? 'flex' : 'none';
+        }
+
+        function renderDashboard() {
+            const showPct = document.getElementById("show-pct-toggle").checked;
             const tbody = document.getElementById("table-body");
             tbody.innerHTML = "";
 
-            if (dataList.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" class="text-center p-8 text-slate-500">⏳ No Data Available Yet.</td></tr>`;
+            if (globalData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="12" class="text-center p-8 text-slate-500">⏳ No Data Available.</td></tr>`;
                 return;
             }
 
-            // Sort by Conv_Rank (CE_CON + PE_CON absolute sum)
-            dataList.sort((a, b) => (Math.abs(b.CE_CON) + Math.abs(b.PE_CON)) - (Math.abs(a.CE_CON) + Math.abs(a.PE_CON)));
+            // Update column headers dynamically based on Show % toggle
+            document.getElementById("col-checker-header").innerText = showPct ? "PCR CHECKER %" : "PCR CHECKER ABS";
+            document.getElementById("col-vol-checker-header").innerText = showPct ? "VOL CHECKER %" : "VOL CHECKER ABS";
 
-            dataList.forEach(item => {
+            // Sort by conviction rank
+            let sortedData = [...globalData].sort((a, b) => (Math.abs(b.CE_CON) + Math.abs(b.PE_CON)) - (Math.abs(a.CE_CON) + Math.abs(a.PE_CON)));
+
+            sortedData.forEach(item => {
                 let row = document.createElement("tr");
                 
-                // Color formatting helpers
                 let openColor = item.OPEN_STATUS.includes("Up") ? "text-green-400" : item.OPEN_STATUS.includes("Down") ? "text-red-400" : "text-cyan-400";
                 let chgColor = item['CHG_%'] > 0 ? "text-green-400" : item['CHG_%'] < 0 ? "text-red-400" : "text-slate-400";
                 let ltpChgColor = item.LTP_CH > 0 ? "text-green-400" : item.LTP_CH < 0 ? "text-red-400" : "text-slate-400";
@@ -97,6 +133,11 @@
                 
                 let vPcrColor = item.V_PCR >= 1.0 ? "text-green-400" : "text-red-400";
                 let oPcrColor = item.O_PCR >= 1.0 ? "text-green-400" : "text-red-400";
+
+                let pcrCheckerVal = showPct ? item.PCR_PCT : item.PCR_ABS;
+                let volCheckerVal = showPct ? item.VOL_PCT : item.VOL_ABS;
+                let pcrCheckColor = pcrCheckerVal > 0 ? "text-green-400" : pcrCheckerVal < 0 ? "text-red-400" : "text-slate-400";
+                let volCheckColor = volCheckerVal > 0 ? "text-green-400" : volCheckerVal < 0 ? "text-red-400" : "text-slate-400";
 
                 row.innerHTML = `
                     <td class="p-3 text-center text-white font-bold">${item.SYMS}</td>
@@ -109,10 +150,37 @@
                     <td class="p-3 text-center text-white">${Number(item.LTP).toFixed(2)}</td>
                     <td class="p-3 text-center ${ceColor}">${Number(item.CE_CON) >= 0 ? '+' : ''}${Number(item.CE_CON).toFixed(1)}%</td>
                     <td class="p-3 text-center ${peColor}">${Number(item.PE_CON) >= 0 ? '+' : ''}${Number(item.PE_CON).toFixed(1)}%</td>
+                    <td class="p-3 text-center ${pcrCheckColor}">${Number(pcrCheckerVal) >= 0 ? '+' : ''}${Number(pcrCheckerVal).toFixed(2)}${showPct?'%':''}</td>
+                    <td class="p-3 text-center ${volCheckColor}">${Number(volCheckerVal) >= 0 ? '+' : ''}${Number(volCheckerVal).toFixed(2)}${showPct?'%':''}</td>
                 `;
                 tbody.appendChild(row);
             });
-        });
+        }
+
+        // Sorting functionality for table headers
+        let sortDirection = false;
+        function sortTable(columnIndex) {
+            const table = document.querySelector("table");
+            const tbody = table.querySelector("tbody");
+            const rows = Array.from(tbody.querySelectorAll("tr"));
+            
+            sortDirection = !sortDirection;
+
+            rows.sort((rowA, rowB) => {
+                let cellA = rowA.cells[columnIndex].innerText.replace(/[%+,]/g, "").trim();
+                let cellB = rowB.cells[columnIndex].innerText.replace(/[%+,]/g, "").trim();
+
+                let valA = !isNaN(cellA) ? parseFloat(cellA) : cellA;
+                let valB = !isNaN(cellB) ? parseFloat(cellB) : cellB;
+
+                if (valA > valB) return sortDirection ? 1 : -1;
+                if (valA < valB) return sortDirection ? -1 : 1;
+                return 0;
+            });
+
+            tbody.innerHTML = "";
+            rows.forEach(row => tbody.appendChild(row));
+        }
     </script>
 </body>
 </html>
