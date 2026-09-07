@@ -89,7 +89,7 @@
     <!-- VIEW 2: PROFESSIONAL CHART -->
     <div id="view-chart" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 sm:p-6 hidden shadow-2xl">
         <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
-            <select id="stock-select" onchange="updateChartData()" class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white font-bold text-sm rounded-lg px-3 py-2 w-full sm:w-64 focus:outline-none focus:border-blue-500">
+            <select id="stock-select" onchange="updateChartData(true)" class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white font-bold text-sm rounded-lg px-3 py-2 w-full sm:w-64 focus:outline-none focus:border-blue-500">
                 <option value="">Select Stock...</option>
             </select>
             <div class="flex space-x-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-300 dark:border-slate-700">
@@ -125,12 +125,11 @@
         
         let globalDashboardData = [];
         let globalChartRawData = [];
+        let groupedChartData = {}; // SMART CACHING (PREVENTS HANG)
+        
         let currentChartMode = 'Vol CPR';
-        
         let apexChartInstance = null;
-        let currentActiveStock = "";
-        let currentActiveMode = "";
-        
+        let sliderInstance = null;
         let cachedTimeCategories = [];
         let cachedIndicatorValues = [];
         let cachedLtpValues = [];
@@ -148,7 +147,7 @@
                 btn.className = "px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-950 text-xs font-bold text-yellow-400 transition shadow-sm";
             }
             if (!document.getElementById('view-chart').classList.contains('hidden')) {
-                updateChartData(true); 
+                updateChartData(false); 
             }
         }
 
@@ -157,9 +156,10 @@
             if (!val) return;
             document.getElementById("live-time").innerText = new Date(val.time * 1000).toLocaleTimeString();
             globalDashboardData = val.data || [];
+            
             renderDashboard();
             populateStockDropdown();
-            runTrendScanner();
+            runTrendScanner(); // Runs super fast now
         });
 
         firebase.database().ref("ChartHistory").on("value", (snapshot) => {
@@ -173,6 +173,19 @@
                 }
             });
             globalChartRawData = rows;
+            
+            // SMART CACHE: Group data once so mobile processor doesn't choke!
+            groupedChartData = {};
+            globalChartRawData.forEach(row => {
+                if (!groupedChartData[row.Symbol]) groupedChartData[row.Symbol] = [];
+                groupedChartData[row.Symbol].push(row);
+            });
+            
+            Object.keys(groupedChartData).forEach(sym => {
+                // Safely sort to prevent localeCompare crash
+                groupedChartData[sym].sort((a, b) => (a.Time || "").localeCompare(b.Time || ""));
+            });
+
             if (!document.getElementById('view-chart').classList.contains('hidden')) {
                 updateChartData(false);
             }
@@ -188,7 +201,7 @@
             document.getElementById(`btn-${tab}`).className = "px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold bg-blue-600 text-white transition";
             
             if (tab === 'chart') {
-                setTimeout(() => { updateChartData(true); }, 100);
+                setTimeout(() => { updateChartData(false); }, 50);
             }
         }
 
@@ -209,22 +222,24 @@
         function populateStockDropdown() {
             const select = document.getElementById("stock-select");
             const currentSelected = select.value;
-            select.innerHTML = "";
-            let symbols = [];
-            if (globalDashboardData.length > 0) {
+            let symbols = Object.keys(groupedChartData);
+            if(symbols.length === 0 && globalDashboardData.length > 0){
                 symbols = globalDashboardData.map(i => i.SYMS || i.SYMBOL).filter(Boolean);
-            } else if (globalChartRawData.length > 0) {
-                symbols = [...new Set(globalChartRawData.map(i => i.Symbol))];
             }
+            
+            if (symbols.length === 0) return;
+            
+            select.innerHTML = "";
             symbols.sort().forEach(sym => {
                 let opt = document.createElement("option");
                 opt.value = sym;
                 opt.innerText = sym;
                 select.appendChild(opt);
             });
+            
             if (currentSelected && symbols.includes(currentSelected)) {
                 select.value = currentSelected;
-            } else if (symbols.length > 0) {
+            } else {
                 select.value = symbols[0];
             }
         }
@@ -241,20 +256,17 @@
             updateChartData(false); 
         }
 
-        function updateChartData(forceRebuild = false) {
-            const selectedStock = document.getElementById("stock-select").value;
-            if (!selectedStock || globalChartRawData.length === 0) return;
-
-            let isNewStockOrMode = (currentActiveStock !== selectedStock || currentActiveMode !== currentChartMode) || forceRebuild;
-            currentActiveStock = selectedStock;
-            currentActiveMode = currentChartMode;
-
-            let filtered = globalChartRawData.filter(i => i.Symbol === selectedStock);
-            filtered.sort((a, b) => a.Time.localeCompare(b.Time));
-
-            cachedTimeCategories = filtered.map(i => i.Time);
+        function updateChartData(isNewStock) {
+            if (document.getElementById('view-chart').classList.contains('hidden')) return; // Safety check
             
-            // Fix 2: Null Handling for straight line rendering
+            const selectedStock = document.getElementById("stock-select").value;
+            if (!selectedStock) return;
+
+            let filtered = groupedChartData[selectedStock] || [];
+            if (filtered.length === 0) return;
+
+            cachedTimeCategories = filtered.map(i => i.Time || "--:--");
+            
             cachedIndicatorValues = filtered.map(i => {
                 let val = i[currentChartMode];
                 if (val === undefined) val = i[currentChartMode === 'Vol CPR' ? 'VOL CPR' : 'OPT PCR'];
@@ -262,61 +274,67 @@
             });
             cachedLtpValues = filtered.map(i => (i.LTP !== undefined && i.LTP !== null && i.LTP !== "") ? parseFloat(i.LTP) : null);
 
-            setupHtmlSlider(cachedTimeCategories, isNewStockOrMode);
+            setupHtmlSlider(cachedTimeCategories, isNewStock);
 
             let sIdx = 0;
             let eIdx = cachedTimeCategories.length - 1;
             const sliderEl = document.getElementById('html-slider');
-            if (sliderEl.noUiSlider) {
+            if (sliderEl && sliderEl.noUiSlider) {
                 let vals = sliderEl.noUiSlider.get();
                 sIdx = parseInt(vals[0]);
                 eIdx = parseInt(vals[1]);
             }
 
-            renderApexChart(cachedTimeCategories, cachedIndicatorValues, cachedLtpValues, sIdx, eIdx, isNewStockOrMode);
+            renderApexChart(cachedTimeCategories, cachedIndicatorValues, cachedLtpValues, sIdx, eIdx);
         }
 
-        function setupHtmlSlider(categories, isNewStockOrMode) {
+        function setupHtmlSlider(categories, isNewStock) {
             const sliderEl = document.getElementById('html-slider');
             if (categories.length === 0) return;
-
-            if (isNewStockOrMode && sliderEl.noUiSlider) {
-                sliderEl.noUiSlider.destroy();
-            }
+            
+            let maxRange = Math.max(1, categories.length - 1);
 
             if (!sliderEl.noUiSlider) {
                 noUiSlider.create(sliderEl, { 
-                    start: [0, categories.length - 1], 
+                    start: [0, maxRange], 
                     connect: true, 
-                    range: { 'min': 0, 'max': Math.max(1, categories.length - 1) }, 
+                    range: { 'min': 0, 'max': maxRange }, 
                     step: 1 
                 });
                 
-                // Fix 1: Update text ONLY while sliding (NO HANG)
                 sliderEl.noUiSlider.on('slide', function (values) {
                     let sIdx = parseInt(values[0]), eIdx = parseInt(values[1]);
-                    document.getElementById('lbl-start').innerText = "From: " + categories[sIdx];
-                    document.getElementById('lbl-end').innerText = "To: " + categories[eIdx];
+                    document.getElementById('lbl-start').innerText = "From: " + (categories[sIdx] || "--:--");
+                    document.getElementById('lbl-end').innerText = "To: " + (categories[eIdx] || "--:--");
                 });
                 
-                // Fix 1: Update Chart ONLY when finger is released
                 sliderEl.noUiSlider.on('set', function (values) {
                     let sIdx = parseInt(values[0]), eIdx = parseInt(values[1]);
-                    renderApexChart(cachedTimeCategories, cachedIndicatorValues, cachedLtpValues, sIdx, eIdx, false);
+                    renderApexChart(cachedTimeCategories, cachedIndicatorValues, cachedLtpValues, sIdx, eIdx);
                 });
             } else {
+                // Safely update range without destroying
                 sliderEl.noUiSlider.updateOptions({
-                    range: { 'min': 0, 'max': Math.max(1, categories.length - 1) }
+                    range: { 'min': 0, 'max': maxRange }
                 }, false);
+                
+                if (isNewStock) {
+                    sliderEl.noUiSlider.set([0, maxRange]);
+                }
             }
             
             let vals = sliderEl.noUiSlider.get();
-            document.getElementById('lbl-start').innerText = "From: " + categories[parseInt(vals[0])];
-            document.getElementById('lbl-end').innerText = "To: " + categories[parseInt(vals[1])];
+            document.getElementById('lbl-start').innerText = "From: " + (categories[parseInt(vals[0])] || "--:--");
+            document.getElementById('lbl-end').innerText = "To: " + (categories[parseInt(vals[1])] || "--:--");
         }
 
-        function renderApexChart(categories, indicatorVals, ltpVals, sIdx, eIdx, isNewStockOrMode) {
-            if (eIdx === null) eIdx = categories.length - 1;
+        function renderApexChart(categories, indicatorVals, ltpVals, sIdx, eIdx) {
+            if (categories.length === 0) return;
+            
+            sIdx = Math.max(0, Math.min(sIdx, categories.length - 1));
+            eIdx = Math.max(0, Math.min(eIdx, categories.length - 1));
+            if (sIdx > eIdx) return;
+            
             let sliceCats = categories.slice(sIdx, eIdx + 1);
             let sliceInd = indicatorVals.slice(sIdx, eIdx + 1);
             let sliceLtp = ltpVals.slice(sIdx, eIdx + 1);
@@ -324,60 +342,67 @@
             let indColor = currentChartMode === 'Vol CPR' ? '#ef4444' : '#0ea5e9';
             const isDark = document.getElementById('body-tag').classList.contains('dark');
 
-            if (apexChartInstance && !isNewStockOrMode) {
-                apexChartInstance.updateOptions({ xaxis: { categories: sliceCats } }, false, false);
+            if (apexChartInstance) {
+                // SUPER FAST UPDATE WITHOUT DESTROYING
+                apexChartInstance.updateOptions({
+                    xaxis: { categories: sliceCats, labels: { style: { colors: isDark ? '#94a3b8' : '#475569', fontSize: '11px' } } },
+                    yaxis: [
+                        { title: { text: currentChartMode, style: { color: indColor } }, labels: { style: { colors: indColor } }, decimalsInFloat: 2 },
+                        { opposite: true, title: { text: 'LTP', style: { color: '#22c55e' } }, labels: { style: { colors: '#22c55e' } }, decimalsInFloat: 2 }
+                    ],
+                    colors: [indColor, '#22c55e'],
+                    grid: { borderColor: isDark ? '#334155' : '#e2e8f0', strokeDashArray: 3 },
+                    tooltip: { theme: isDark ? 'dark' : 'light' },
+                    legend: { labels: { colors: isDark ? '#fff' : '#000' } }
+                }, false, false);
+
                 apexChartInstance.updateSeries([
                     { name: currentChartMode, data: sliceInd },
                     { name: 'LTP', data: sliceLtp }
                 ], false);
-                return;
+            } else {
+                let options = {
+                    series: [
+                        { name: currentChartMode, type: 'line', data: sliceInd },
+                        { name: 'LTP', type: 'line', data: sliceLtp }
+                    ],
+                    chart: { height: 440, type: 'line', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: false }, background: 'transparent' },
+                    colors: [indColor, '#22c55e'],
+                    stroke: { curve: 'straight', width: [2, 2] },
+                    fill: { type: ['gradient', 'solid'], gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05, stops: [0, 100] } },
+                    dataLabels: { enabled: false },
+                    xaxis: { categories: sliceCats, labels: { style: { colors: isDark ? '#94a3b8' : '#475569', fontSize: '11px' } }, tickAmount: 10 },
+                    yaxis: [
+                        { title: { text: currentChartMode, style: { color: indColor } }, labels: { style: { colors: indColor } }, decimalsInFloat: 2 },
+                        { opposite: true, title: { text: 'LTP', style: { color: '#22c55e' } }, labels: { style: { colors: '#22c55e' } }, decimalsInFloat: 2 }
+                    ],
+                    tooltip: { shared: true, intersect: false, theme: isDark ? 'dark' : 'light' },
+                    legend: { position: 'top', horizontalAlign: 'right', labels: { colors: isDark ? '#fff' : '#000' } },
+                    grid: { borderColor: isDark ? '#334155' : '#e2e8f0', strokeDashArray: 3 }
+                };
+                apexChartInstance = new ApexCharts(document.querySelector("#apex-chart-container"), options);
+                apexChartInstance.render();
             }
-
-            if (apexChartInstance) apexChartInstance.destroy();
-
-            let options = {
-                series: [
-                    { name: currentChartMode, type: 'line', data: sliceInd },
-                    { name: 'LTP', type: 'line', data: sliceLtp }
-                ],
-                chart: { height: 440, type: 'line', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: false }, background: 'transparent' },
-                colors: [indColor, '#22c55e'],
-                // Fix 2: Changed to 'straight' lines to prevent disappearing dots on mobile
-                stroke: { curve: 'straight', width: [2, 2] },
-                fill: { type: ['gradient', 'solid'], gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05, stops: [0, 100] } },
-                dataLabels: { enabled: false },
-                xaxis: { categories: sliceCats, labels: { style: { colors: isDark ? '#94a3b8' : '#475569', fontSize: '11px' } }, tickAmount: 10 },
-                yaxis: [
-                    { title: { text: currentChartMode, style: { color: indColor } }, labels: { style: { colors: indColor } }, decimalsInFloat: 2 },
-                    { opposite: true, title: { text: 'LTP', style: { color: '#22c55e' } }, labels: { style: { colors: '#22c55e' } }, decimalsInFloat: 2 }
-                ],
-                tooltip: { shared: true, intersect: false, theme: isDark ? 'dark' : 'light' },
-                legend: { position: 'top', horizontalAlign: 'right', labels: { colors: isDark ? '#fff' : '#000' } },
-                grid: { borderColor: isDark ? '#334155' : '#e2e8f0', strokeDashArray: 3 }
-            };
-
-            apexChartInstance = new ApexCharts(document.querySelector("#apex-chart-container"), options);
-            apexChartInstance.render();
         }
 
         function resetChartZoom() {
             const sliderEl = document.getElementById('html-slider');
             if (sliderEl && sliderEl.noUiSlider && cachedTimeCategories.length > 0) {
                 sliderEl.noUiSlider.set([0, cachedTimeCategories.length - 1]);
-                renderApexChart(cachedTimeCategories, cachedIndicatorValues, cachedLtpValues, 0, cachedTimeCategories.length - 1, false);
+                renderApexChart(cachedTimeCategories, cachedIndicatorValues, cachedLtpValues, 0, cachedTimeCategories.length - 1);
             }
         }
 
         function runTrendScanner() {
-            if (globalChartRawData.length === 0 || globalDashboardData.length === 0) return;
+            if (Object.keys(groupedChartData).length === 0 || globalDashboardData.length === 0) return;
+            
             let latestLookup = {};
             globalDashboardData.forEach(item => { latestLookup[item.SYMS || item.SYMBOL] = item; });
             
-            let symbols = [...new Set(globalChartRawData.map(i => i.Symbol))];
             let bullishRows = [], bearishRows = [];
 
-            symbols.forEach(sym => {
-                let sdf = globalChartRawData.filter(i => i.Symbol === sym).sort((a, b) => a.Time.localeCompare(b.Time));
+            Object.keys(groupedChartData).forEach(sym => {
+                let sdf = groupedChartData[sym];
                 if (sdf.length < 5) return;
 
                 let volSeries = sdf.map(i => parseFloat(i['VOL CPR'] || 0));
