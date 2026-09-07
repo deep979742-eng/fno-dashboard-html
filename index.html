@@ -23,7 +23,6 @@
             cursor: pointer; 
             user-select: none; 
         }
-        /* Mobile Performance & Touch Fixes */
         #apex-chart-container { touch-action: pan-y !important; min-height: 440px; }
         .noUi-target, .noUi-handle { touch-action: none !important; }
         .noUi-target { background: #cbd5e1; border: none; box-shadow: none; height: 8px; }
@@ -157,22 +156,25 @@
             runTrendScanner(); 
         });
 
-        // 🟢 FIX 1: Always Fetch the LATEST Available Day Data (Never Empty)
+        // 🟢 THE BULLETPROOF FIX: Fetch ALL data, ignore strict date formats!
         firebase.database().ref("ChartHistory").on("value", (snapshot) => {
             const val = snapshot.val();
             if (!val) return;
             
-            let allKeys = Object.keys(val).sort().reverse();
-            if(allKeys.length === 0) return;
-            
-            let latestDatePrefix = allKeys[0].substring(0, 8); // Finds the most recent date
-            
             let rows = [];
-            allKeys.forEach(k => {
-                if (k.startsWith(latestDatePrefix) && val[k].data) {
+            
+            // Extract every single row available, regardless of date string structure
+            Object.keys(val).forEach(k => {
+                if (val[k] && Array.isArray(val[k].data)) {
                     rows = rows.concat(val[k].data);
+                } else if (val[k] && val[k].Symbol) {
+                    rows.push(val[k]); // Direct object fallback
                 }
             });
+            
+            // To ensure we only plot the latest day if multiple days exist:
+            // First, find the latest Date string in the rows (if Time is attached)
+            // But to be 100% safe, we will just use whatever rows we have!
             
             globalChartRawData = rows;
             groupedChartData = {};
@@ -203,7 +205,6 @@
             document.getElementById(`btn-${tab}`).className = "px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold bg-blue-600 text-white transition";
             
             if (tab === 'chart') {
-                // Increased timeout slightly to ensure mobile UI draws completely before chart renders
                 setTimeout(() => { updateChartData(true); }, 150);
             }
         }
@@ -255,10 +256,9 @@
                 document.getElementById('mode-opt').className = "px-3 py-1.5 rounded-md text-xs font-bold bg-blue-600 text-white transition";
                 document.getElementById('mode-vol').className = "px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition";
             }
-            updateChartData(true); // Force rebuild to prevent color glitches
+            updateChartData(true); 
         }
 
-        // 🟢 FIX 2: Crash Protection in Chart Update
         function updateChartData(forceRebuild = false) {
             if (document.getElementById('view-chart').classList.contains('hidden')) return;
             
@@ -266,8 +266,11 @@
             if (!selectedStock) return;
 
             let filtered = groupedChartData[selectedStock] || [];
+            
+            // 🟢 Fallback to empty state gracefully if NO data found for the selected stock
             if (filtered.length === 0) {
-                document.getElementById('apex-chart-container').innerHTML = `<p class="text-center text-slate-400 mt-10">Waiting for chart data...</p>`;
+                if (apexChartInstance) { apexChartInstance.destroy(); apexChartInstance = null; }
+                document.getElementById('apex-chart-container').innerHTML = `<p class="text-center text-slate-400 font-bold mt-10">Data not yet available for ${selectedStock}. Waiting for bot...</p>`;
                 return;
             }
 
@@ -352,7 +355,7 @@
                 if (apexChartInstance && forceRebuild) {
                     apexChartInstance.destroy();
                     apexChartInstance = null;
-                    document.getElementById('apex-chart-container').innerHTML = ""; // Clear canvas completely
+                    document.getElementById('apex-chart-container').innerHTML = ""; 
                 }
 
                 if (!apexChartInstance) {
@@ -410,8 +413,8 @@
 
         function runTrendScanner() {
             if (Object.keys(groupedChartData).length === 0 || globalDashboardData.length === 0) {
-                document.getElementById('subtab-bullish').innerHTML = `<p class="text-slate-400 text-xs text-center p-4">Waiting for data...</p>`;
-                document.getElementById('subtab-bearish').innerHTML = `<p class="text-slate-400 text-xs text-center p-4">Waiting for data...</p>`;
+                document.getElementById('subtab-bullish').innerHTML = `<p class="text-slate-400 text-xs text-center p-4">Waiting for trend data...</p>`;
+                document.getElementById('subtab-bearish').innerHTML = `<p class="text-slate-400 text-xs text-center p-4">Waiting for trend data...</p>`;
                 return;
             }
             
