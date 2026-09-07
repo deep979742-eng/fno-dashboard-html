@@ -4,13 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>F&O Pro Trading Dashboard</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = { darkMode: 'class' }
     </script>
+    <!-- ApexCharts & noUiSlider -->
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.js"></script>
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
@@ -18,7 +21,7 @@
             position: sticky !important; 
             top: 0 !important; 
             z-index: 50 !important; 
-            background-color: #00008B !important; 
+            background-color: darkblue !important; 
             color: #ffffff !important; 
             cursor: pointer; 
             user-select: none; 
@@ -27,13 +30,14 @@
         #apex-chart-container { touch-action: pan-y !important; min-height: 440px; }
         .noUi-target, .noUi-handle { touch-action: none !important; }
         .noUi-target { background: #cbd5e1; border: none; box-shadow: none; height: 8px; }
-        .noUi-connect { background: #0ea5e9; }
-        .noUi-handle { width: 22px !important; height: 22px !important; border-radius: 50%; background: #0ea5e9; border: none; right: -11px !important; top: -7px !important; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+        .noUi-connect { background: #2962FF; }
+        .noUi-handle { width: 22px !important; height: 22px !important; border-radius: 50%; background: #2962FF; border: none; right: -11px !important; top: -7px !important; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
         .noUi-handle:before, .noUi-handle:after { display: none; }
     </style>
 </head>
 <body class="p-2 sm:p-4 bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200" id="body-tag">
 
+    <!-- TOP CONTROL BAR -->
     <div class="w-full flex flex-wrap justify-between items-center mb-4 bg-white dark:bg-slate-900 p-2 sm:p-3 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 gap-2">
         <div class="flex space-x-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-lg border border-slate-200 dark:border-slate-800">
             <button onclick="switchTab('dash')" id="btn-dash" class="px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold bg-blue-600 text-white transition">📊 Dash</button>
@@ -55,6 +59,7 @@
         </div>
     </div>
 
+    <!-- VIEW 1: DASHBOARD TABLE -->
     <div id="view-dash" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden">
         <div class="overflow-x-auto max-h-[80vh]">
             <table class="w-full text-left border-collapse text-xs sm:text-sm">
@@ -75,12 +80,13 @@
                     </tr>
                 </thead>
                 <tbody id="table-body" class="divide-y divide-slate-200 dark:divide-slate-800 font-semibold">
-                    <tr><td colspan="12" class="text-center p-8 text-slate-400">⏳ Loading & Fetching from Firebase...</td></tr>
+                    <tr><td colspan="12" class="text-center p-8 text-slate-400">⏳ Loading Data from Firebase...</td></tr>
                 </tbody>
             </table>
         </div>
     </div>
 
+    <!-- VIEW 2: PROFESSIONAL CHART -->
     <div id="view-chart" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 sm:p-6 hidden shadow-2xl">
         <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
             <select id="stock-select" onchange="updateChartData(true)" class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white font-bold text-sm rounded-lg px-3 py-2 w-full sm:w-64 focus:outline-none focus:border-blue-500">
@@ -102,6 +108,7 @@
         </div>
     </div>
 
+    <!-- VIEW 3: TREND SCANNER -->
     <div id="view-trend" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hidden shadow-2xl">
         <h2 class="text-lg font-bold text-cyan-600 dark:text-cyan-400 mb-4">🚀 Divergence Trend Scanner</h2>
         <div class="flex space-x-2 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2">
@@ -117,7 +124,7 @@
         firebase.initializeApp({ databaseURL: FIREBASE_URL });
         
         let globalDashboardData = [];
-        let groupedChartData = {}; 
+        let globalChartRawData = [];
         
         let currentChartMode = 'Vol CPR';
         let apexChartInstance = null;
@@ -129,22 +136,15 @@
         let cachedIndicatorValues = [];
         let cachedLtpValues = [];
 
-        // 🟢 FIX 1: Super Catcher - Catch data no matter what spelling Firebase uses!
-        function getSafeDataValue(row, mode) {
-            let val = null;
-            if (mode === 'Vol CPR') {
-                val = row['VOL CPR'] ?? row['Vol CPR'] ?? row['V_CPR'] ?? row['v_cpr'] ?? row.VOL_CPR ?? row.V_CPR;
-            } else {
-                val = row['OPT PCR'] ?? row['OPT_PCR'] ?? row['Opt PCR'] ?? row['O_PCR'] ?? row['o_pcr'] ?? row.O_PCR ?? row.OPT_PCR;
-            }
-            let parsed = parseFloat(val);
-            return isNaN(parsed) ? null : parsed;
-        }
-
-        function getSafeLtpValue(row) {
-            let val = row['LTP'] ?? row.LTP ?? row['ltp'];
-            let parsed = parseFloat(val);
-            return isNaN(parsed) ? null : parsed;
+        // 1. Get exact Indian Standard Time (IST) Date string (Matches Python %Y-%m-%d)
+        function getISTDateStr() {
+            let d = new Date();
+            let utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+            let ist = new Date(utc + (3600000 * 5.5));
+            let yr = ist.getFullYear();
+            let mo = String(ist.getMonth() + 1).padStart(2, '0');
+            let da = String(ist.getDate()).padStart(2, '0');
+            return `${yr}-${mo}-${da}`; 
         }
 
         function toggleTheme() {
@@ -174,39 +174,24 @@
             runTrendScanner(); 
         });
 
+        // 2. Fetch Data exactly like Python script
         firebase.database().ref("ChartHistory").on("value", (snapshot) => {
             const val = snapshot.val();
             if (!val) return;
             
+            let todayPrefix = getISTDateStr().replace(/-/g, ""); // e.g., "20240907"
             let rows = [];
+            
             Object.keys(val).forEach(k => {
-                if (val[k] && Array.isArray(val[k].data)) {
-                    rows = rows.concat(val[k].data);
-                } else if (val[k] && val[k].Symbol) {
-                    rows.push(val[k]); 
+                if (k.startsWith(todayPrefix)) {
+                    if (val[k] && Array.isArray(val[k].data)) {
+                        rows = rows.concat(val[k].data);
+                    }
                 }
             });
             
-            groupedChartData = {};
+            globalChartRawData = rows;
             
-            rows.forEach(row => {
-                let sym = row.Symbol || row.sym || row.SYMBOL;
-                if (!sym) return;
-                if (!groupedChartData[sym]) groupedChartData[sym] = [];
-                groupedChartData[sym].push(row);
-            });
-            
-            // 🟢 FIX 2: Duplicate Killer & Strict Sorting
-            Object.keys(groupedChartData).forEach(sym => {
-                let uniqueMap = new Map();
-                groupedChartData[sym].forEach(r => {
-                    if (r.Time) uniqueMap.set(r.Time, r); // Keeps only 1 data point per second/minute
-                });
-                let uniqueArr = Array.from(uniqueMap.values());
-                uniqueArr.sort((a, b) => a.Time.localeCompare(b.Time)); // Strict chronological sort
-                groupedChartData[sym] = uniqueArr;
-            });
-
             if (!document.getElementById('view-chart').classList.contains('hidden')) {
                 updateChartData(false);
             }
@@ -243,10 +228,14 @@
         function populateStockDropdown() {
             const select = document.getElementById("stock-select");
             const currentSelected = select.value;
-            let symbols = Object.keys(groupedChartData);
-            if(symbols.length === 0 && globalDashboardData.length > 0){
+            let symbols = [];
+            
+            if (globalDashboardData.length > 0) {
                 symbols = globalDashboardData.map(i => i.SYMS || i.SYMBOL).filter(Boolean);
+            } else if (globalChartRawData.length > 0) {
+                symbols = [...new Set(globalChartRawData.map(i => i.Symbol || i.SYMS || i.SYMBOL).filter(Boolean))];
             }
+            
             if (symbols.length === 0) return;
             
             select.innerHTML = "";
@@ -282,20 +271,57 @@
             const selectedStock = document.getElementById("stock-select").value;
             if (!selectedStock) return;
 
-            let filtered = groupedChartData[selectedStock] || [];
-            if (filtered.length === 0) {
+            let todayStr = getISTDateStr();
+
+            // 3. Filter exactly like Python: day_df[day_df['Symbol'] == sel_stock]
+            let df_sym_raw = globalChartRawData.filter(r => {
+                let d = (r['Date'] || "").toString().trim();
+                let s = (r['Symbol'] || r['SYMS'] || "").toString().trim();
+                return d === todayStr && s === selectedStock;
+            });
+
+            if (df_sym_raw.length === 0) {
                 if (apexChartInstance) { apexChartInstance.destroy(); apexChartInstance = null; }
-                document.getElementById('apex-chart-container').innerHTML = `<p class="text-center text-slate-400 font-bold mt-10">Data not yet available for ${selectedStock}. Waiting for bot...</p>`;
+                document.getElementById('apex-chart-container').innerHTML = `<p class="text-center text-slate-400 font-bold mt-10">Waiting for today's market data...</p>`;
                 return;
             }
+
+            // 4. SMART MERGE: Combines split LTP and VOL CPR data into single timestamps safely!
+            let mergedMap = new Map();
+            df_sym_raw.forEach(r => {
+                let t = r['Time'] || "--:--";
+                if (!mergedMap.has(t)) {
+                    mergedMap.set(t, { ...r });
+                } else {
+                    let existing = mergedMap.get(t);
+                    Object.keys(r).forEach(k => {
+                        if (r[k] !== null && r[k] !== undefined && r[k] !== "") {
+                            existing[k] = r[k];
+                        }
+                    });
+                }
+            });
+
+            let df_sym = Array.from(mergedMap.values());
+            df_sym.sort((a, b) => (a['Time'] || "").localeCompare(b['Time'] || ""));
 
             let isNewStockOrMode = (currentActiveStock !== selectedStock || currentActiveMode !== currentChartMode || forceRebuild);
             currentActiveStock = selectedStock;
             currentActiveMode = currentChartMode;
 
-            cachedTimeCategories = filtered.map(i => i.Time || "--:--");
-            cachedIndicatorValues = filtered.map(i => getSafeDataValue(i, currentChartMode));
-            cachedLtpValues = filtered.map(i => getSafeLtpValue(i));
+            let targetCol = currentChartMode === 'Vol CPR' ? 'VOL CPR' : 'OPT PCR';
+
+            cachedTimeCategories = df_sym.map(r => r['Time'] || "--:--");
+            
+            // 5. Fillna(0) Logic to mimic Streamlit Python exact behaviour
+            cachedIndicatorValues = df_sym.map(r => {
+                let val = parseFloat(r[targetCol]);
+                return isNaN(val) ? 0 : val;
+            });
+            cachedLtpValues = df_sym.map(r => {
+                let val = parseFloat(r['LTP']);
+                return isNaN(val) ? 0 : val;
+            });
 
             setupHtmlSlider(cachedTimeCategories, isNewStockOrMode);
 
@@ -343,7 +369,6 @@
             document.getElementById('lbl-end').innerText = "To: " + (categories[parseInt(vals[1])] || "--:--");
         }
 
-        // 🟢 FIX 3: Clean Canvas - Guaranteed NO double charts!
         function renderApexChart(categories, indicatorVals, ltpVals, sIdx, eIdx, forceRebuild) {
             if (categories.length === 0) return;
             
@@ -355,7 +380,8 @@
             let sliceInd = indicatorVals.slice(sIdx, eIdx + 1);
             let sliceLtp = ltpVals.slice(sIdx, eIdx + 1);
             
-            let indColor = currentChartMode === 'Vol CPR' ? '#ef4444' : '#0ea5e9';
+            // Exact colors from Streamlit Code
+            let indColor = currentChartMode === 'Vol CPR' ? '#FF4D4D' : '#00BFFF';
             const isDark = document.getElementById('body-tag').classList.contains('dark');
             const container = document.getElementById('apex-chart-container');
 
@@ -365,22 +391,23 @@
                         apexChartInstance.destroy();
                         apexChartInstance = null;
                     }
-                    container.innerHTML = ""; // FULLY CLEAR OLD CHART
+                    container.innerHTML = ""; 
 
+                    // Exact Streamlit ApexCharts settings (area + smooth)
                     let options = {
                         series: [
-                            { name: currentChartMode, type: 'line', data: sliceInd },
+                            { name: currentChartMode, type: 'area', data: sliceInd },
                             { name: 'LTP', type: 'line', data: sliceLtp }
                         ],
                         chart: { height: 440, type: 'line', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: false }, background: 'transparent' },
-                        colors: [indColor, '#22c55e'],
-                        stroke: { curve: 'straight', width: [2, 2] },
+                        colors: [indColor, '#00CC66'],
+                        stroke: { curve: 'smooth', width: [3, 3] },
                         fill: { type: ['gradient', 'solid'], gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05, stops: [0, 100] } },
                         dataLabels: { enabled: false },
-                        xaxis: { categories: sliceCats, labels: { style: { colors: isDark ? '#94a3b8' : '#475569', fontSize: '11px' } }, tickAmount: 10 },
+                        xaxis: { categories: sliceCats, labels: { style: { colors: isDark ? '#94a3b8' : '#888' }, fontSize: '11px' }, tickAmount: 10 },
                         yaxis: [
                             { title: { text: currentChartMode, style: { color: indColor } }, labels: { style: { colors: indColor } }, decimalsInFloat: 2 },
-                            { opposite: true, title: { text: 'LTP', style: { color: '#22c55e' } }, labels: { style: { colors: '#22c55e' } }, decimalsInFloat: 2 }
+                            { opposite: true, title: { text: 'LTP', style: { color: '#00CC66' } }, labels: { style: { colors: '#00CC66' } }, decimalsInFloat: 2 }
                         ],
                         tooltip: { shared: true, intersect: false, theme: isDark ? 'dark' : 'light' },
                         legend: { position: 'top', horizontalAlign: 'right', labels: { colors: isDark ? '#fff' : '#000' } },
@@ -390,12 +417,12 @@
                     apexChartInstance.render();
                 } else {
                     apexChartInstance.updateOptions({
-                        xaxis: { categories: sliceCats, labels: { style: { colors: isDark ? '#94a3b8' : '#475569', fontSize: '11px' } } },
+                        xaxis: { categories: sliceCats, labels: { style: { colors: isDark ? '#94a3b8' : '#888' }, fontSize: '11px' } },
                         yaxis: [
                             { title: { text: currentChartMode, style: { color: indColor } }, labels: { style: { colors: indColor } }, decimalsInFloat: 2 },
-                            { opposite: true, title: { text: 'LTP', style: { color: '#22c55e' } }, labels: { style: { colors: '#22c55e' } }, decimalsInFloat: 2 }
+                            { opposite: true, title: { text: 'LTP', style: { color: '#00CC66' } }, labels: { style: { colors: '#00CC66' } }, decimalsInFloat: 2 }
                         ],
-                        colors: [indColor, '#22c55e'],
+                        colors: [indColor, '#00CC66'],
                         grid: { borderColor: isDark ? '#334155' : '#e2e8f0', strokeDashArray: 3 },
                         tooltip: { theme: isDark ? 'dark' : 'light' },
                         legend: { labels: { colors: isDark ? '#fff' : '#000' } }
@@ -407,7 +434,7 @@
                     ], false);
                 }
             } catch (err) {
-                console.error("ApexCharts rendering error: ", err);
+                console.error("ApexCharts error: ", err);
             }
         }
 
@@ -420,39 +447,69 @@
         }
 
         function runTrendScanner() {
-            if (Object.keys(groupedChartData).length === 0 || globalDashboardData.length === 0) {
-                document.getElementById('subtab-bullish').innerHTML = `<p class="text-slate-400 text-xs text-center p-4">Waiting for trend data...</p>`;
-                document.getElementById('subtab-bearish').innerHTML = `<p class="text-slate-400 text-xs text-center p-4">Waiting for trend data...</p>`;
-                return;
-            }
+            if (globalChartRawData.length === 0 || globalDashboardData.length === 0) return;
             
             try {
+                let todayStr = getISTDateStr();
+                let day_df = globalChartRawData.filter(r => {
+                    return (r['Date'] || "").toString().trim() === todayStr;
+                });
+
                 let latestLookup = {};
                 globalDashboardData.forEach(item => { latestLookup[item.SYMS || item.SYMBOL] = item; });
                 
                 let bullishRows = [], bearishRows = [];
+                let symbols = [...new Set(day_df.map(r => (r['Symbol'] || r['SYMS'] || "").trim()).filter(Boolean))];
 
-                Object.keys(groupedChartData).forEach(sym => {
-                    let sdf = groupedChartData[sym];
-                    if (!sdf || sdf.length < 5) return;
+                symbols.forEach(sym => {
+                    let sdf = day_df.filter(r => (r['Symbol'] || r['SYMS'] || "").trim() === sym);
+                    sdf.sort((a, b) => (a['Time'] || "").localeCompare(b['Time'] || ""));
+                    
+                    if (sdf.length < 5) return;
 
-                    let volSeries = sdf.map(i => getSafeDataValue(i, 'Vol CPR')).filter(v => v !== null);
-                    if(volSeries.length < 5) return;
+                    let volSeries = sdf.map(r => parseFloat(r['VOL CPR'])).filter(v => !isNaN(v));
+                    let pcrSeries = sdf.map(r => parseFloat(r['OPT PCR'])).filter(v => !isNaN(v));
+                    let ltpSeries = sdf.map(r => parseFloat(r['LTP'])).filter(v => !isNaN(v));
+                    
+                    if (volSeries.length === 0 || pcrSeries.length === 0 || ltpSeries.length === 0) return;
 
-                    let lastVol = volSeries[volSeries.length - 1];
-                    let firstVol = (volSeries[0] + volSeries[1] + volSeries[2] + volSeries[3]) / 4;
-                    let maxVol = Math.max(...volSeries);
-                    let minVol = Math.min(...volSeries);
+                    let first_vol = (volSeries[0] + (volSeries[1]||0) + (volSeries[2]||0) + (volSeries[3]||0)) / Math.min(4, volSeries.length);
+                    let first_pcr = (pcrSeries[0] + (pcrSeries[1]||0) + (pcrSeries[2]||0) + (pcrSeries[3]||0)) / Math.min(4, pcrSeries.length);
+                    let first_ltp = (ltpSeries[0] + (ltpSeries[1]||0) + (ltpSeries[2]||0) + (ltpSeries[3]||0)) / Math.min(4, ltpSeries.length);
+                    
+                    let last_vol = volSeries[volSeries.length - 1];
+                    let last_pcr = pcrSeries[pcrSeries.length - 1];
+                    let last_ltp = ltpSeries[ltpSeries.length - 1];
+                    
+                    let max_vol = Math.max(...volSeries);
+                    let min_vol = Math.min(...volSeries);
+
+                    if (first_vol === 0 || isNaN(first_vol) || first_ltp === 0 || isNaN(first_ltp)) return;
+
+                    let price_movement_pct = Math.abs((last_ltp - first_ltp) / first_ltp) * 100;
+                    let is_price_stuck = price_movement_pct <= 1.5;
 
                     let info = latestLookup[sym] || {};
                     let ceCon = parseFloat(info.CE_CON || 0);
                     let peCon = parseFloat(info.PE_CON || 0);
+                    let chgPct = parseFloat(info['CHG_%'] || 0);
+                    let optPcr = parseFloat(info.O_PCR || 0);
+                    let volCpr = parseFloat(info.V_CPR || 0);
 
-                    if (lastVol > firstVol && lastVol >= maxVol * 0.75 && ceCon >= 70) {
-                        bullishRows.push({ sym, chg: info['CHG_%'] || 0, pcr: info['O_PCR'] || 0, cpr: info['V_CPR'] || 0, ce: ceCon });
-                    }
-                    if (lastVol < firstVol && lastVol <= minVol * 1.25 && peCon >= 70) {
-                        bearishRows.push({ sym, chg: info['CHG_%'] || 0, pcr: info['O_PCR'] || 0, cpr: info['V_CPR'] || 0, pe: peCon });
+                    if (is_price_stuck) {
+                        let is_vol_bullish = (last_vol > first_vol) && (last_vol >= max_vol * 0.75);
+                        let is_pcr_bullish = (last_pcr >= first_pcr * 0.90);
+                        
+                        if (is_vol_bullish && is_pcr_bullish && ceCon >= 70) {
+                            bullishRows.push({ sym, chg: chgPct, pcr: optPcr, cpr: volCpr, ce: ceCon });
+                        }
+
+                        let is_vol_bearish = (last_vol < first_vol) && (min_vol > 0.1 ? last_vol <= min_vol * 1.25 : last_vol <= 0.5);
+                        let is_pcr_bearish = (last_pcr <= first_pcr * 1.10);
+
+                        if (is_vol_bearish && is_pcr_bearish && peCon >= 70) {
+                            bearishRows.push({ sym, chg: chgPct, pcr: optPcr, cpr: volCpr, pe: peCon });
+                        }
                     }
                 });
 
@@ -491,29 +548,33 @@
             let sortedData = [...globalDashboardData].sort((a, b) => (Math.abs(b.CE_CON) + Math.abs(b.PE_CON)) - (Math.abs(a.CE_CON) + Math.abs(a.PE_CON)));
             sortedData.forEach(item => {
                 let row = document.createElement("tr");
-                let openColor = item.OPEN_STATUS.includes("Up") ? "text-green-600 dark:text-green-400" : item.OPEN_STATUS.includes("Down") ? "text-red-600 dark:text-red-400" : "text-cyan-600 dark:text-cyan-400";
-                let chgColor = item['CHG_%'] > 0 ? "text-green-600 dark:text-green-400" : item['CHG_%'] < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500";
-                let ltpChgColor = item.LTP_CH > 0 ? "text-green-600 dark:text-green-400" : item.LTP_CH < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500";
-                let ceColor = item.CE_CON > 0 ? "text-green-600 dark:text-green-400" : item.CE_CON < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500";
-                let peColor = item.PE_CON > 0 ? "text-green-600 dark:text-green-400" : item.PE_CON < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500";
-                let vPcrColor = item.V_PCR >= 1.0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
-                let oPcrColor = item.O_PCR >= 1.0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
+                
+                // Colors matched exactly with Streamlit logic
+                let openColor = String(item.OPEN_STATUS).includes("Gap Up") ? "#00AA00" : String(item.OPEN_STATUS).includes("Gap Down") ? "#FF0000" : "#00BFFF";
+                let chgColor = parseFloat(item['CHG_%']) > 0 ? "#00AA00" : parseFloat(item['CHG_%']) < 0 ? "#FF0000" : "#888888";
+                let ltpChgColor = parseFloat(item.LTP_CH) > 0 ? "#00AA00" : parseFloat(item.LTP_CH) < 0 ? "#FF0000" : "#888888";
+                let ceColor = parseFloat(item.CE_CON) > 0 ? "#00AA00" : parseFloat(item.CE_CON) < 0 ? "#FF0000" : "#888888";
+                let peColor = parseFloat(item.PE_CON) > 0 ? "#00AA00" : parseFloat(item.PE_CON) < 0 ? "#FF0000" : "#888888";
+                let vPcrColor = parseFloat(item.V_PCR) >= 1.0 ? "#00AA00" : "#FF0000";
+                let oPcrColor = parseFloat(item.O_PCR) >= 1.0 ? "#00AA00" : "#FF0000";
+                let vCprColor = parseFloat(item.V_CPR) >= 1.0 ? "#00AA00" : "#FF0000";
+
                 let pcrVal = showPct ? item.PCR_PCT : item.PCR_ABS;
                 let volVal = showPct ? item.VOL_PCT : item.VOL_ABS;
 
                 row.innerHTML = `
                     <td class="p-3 text-center font-bold">${item.SYMS}</td>
-                    <td class="p-3 text-center ${openColor}">${item.OPEN_STATUS}</td>
-                    <td class="p-3 text-center ${vPcrColor}">${Number(item.V_PCR).toFixed(2)}</td>
-                    <td class="p-3 text-center ${oPcrColor}">${Number(item.O_PCR).toFixed(2)}</td>
-                    <td class="p-3 text-center">${Number(item.V_CPR).toFixed(2)}</td>
-                    <td class="p-3 text-center ${ltpChgColor}">${Number(item.LTP_CH)>=0?'+':''}${Number(item.LTP_CH).toFixed(2)}</td>
-                    <td class="p-3 text-center ${chgColor}">${Number(item['CHG_%'])>=0?'+':''}${Number(item['CHG_%']).toFixed(2)}%</td>
-                    <td class="p-3 text-center">${Number(item.LTP).toFixed(2)}</td>
-                    <td class="p-3 text-center ${ceColor}">${Number(item.CE_CON)>=0?'+':''}${Number(item.CE_CON).toFixed(1)}%</td>
-                    <td class="p-3 text-center ${peColor}">${Number(item.PE_CON)>=0?'+':''}${Number(item.PE_CON).toFixed(1)}%</td>
-                    <td class="p-3 text-center">${Number(pcrVal).toFixed(2)}${showPct?'%':''}</td>
-                    <td class="p-3 text-center">${Number(volVal).toFixed(2)}${showPct?'%':''}</td>
+                    <td class="p-3 text-center font-bold" style="color: ${openColor}">${item.OPEN_STATUS}</td>
+                    <td class="p-3 text-center font-bold" style="color: ${vPcrColor}">${Number(item.V_PCR).toFixed(2)}</td>
+                    <td class="p-3 text-center font-bold" style="color: ${oPcrColor}">${Number(item.O_PCR).toFixed(2)}</td>
+                    <td class="p-3 text-center font-bold" style="color: ${vCprColor}">${Number(item.V_CPR).toFixed(2)}</td>
+                    <td class="p-3 text-center font-bold" style="color: ${ltpChgColor}">${Number(item.LTP_CH)>=0?'+':''}${Number(item.LTP_CH).toFixed(2)}</td>
+                    <td class="p-3 text-center font-bold" style="color: ${chgColor}">${Number(item['CHG_%'])>=0?'+':''}${Number(item['CHG_%']).toFixed(2)}%</td>
+                    <td class="p-3 text-center font-bold">${Number(item.LTP).toFixed(2)}</td>
+                    <td class="p-3 text-center font-bold" style="color: ${ceColor}">${Number(item.CE_CON)>=0?'+':''}${Number(item.CE_CON).toFixed(1)}%</td>
+                    <td class="p-3 text-center font-bold" style="color: ${peColor}">${Number(item.PE_CON)>=0?'+':''}${Number(item.PE_CON).toFixed(1)}%</td>
+                    <td class="p-3 text-center font-bold" style="color: ${parseFloat(pcrVal)>=0?'#00AA00':'#FF0000'}">${Number(pcrVal).toFixed(2)}${showPct?'%':''}</td>
+                    <td class="p-3 text-center font-bold" style="color: ${parseFloat(volVal)>=0?'#00AA00':'#FF0000'}">${Number(volVal).toFixed(2)}${showPct?'%':''}</td>
                 `;
                 tbody.appendChild(row);
             });
