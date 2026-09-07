@@ -1,613 +1,3082 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>F&O Pro Trading Dashboard</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = { darkMode: 'class' }
-    </script>
-    <!-- ApexCharts & noUiSlider -->
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.js"></script>
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    <style>
-        table.dataframe th, th { 
-            position: sticky !important; 
-            top: 0 !important; 
-            z-index: 50 !important; 
-            background-color: darkblue !important; 
-            color: #ffffff !important; 
-            cursor: pointer; 
-            user-select: none; 
-        }
-        #apex-chart-container { touch-action: pan-y !important; min-height: 440px; }
-        .noUi-target, .noUi-handle { touch-action: none !important; }
-        .noUi-target { background: #cbd5e1; border: none; box-shadow: none; height: 8px; }
-        .noUi-connect { background: #2962FF; }
-        .noUi-handle { width: 22px !important; height: 22px !important; border-radius: 50%; background: #2962FF; border: none; right: -11px !important; top: -7px !important; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
-        .noUi-handle:before, .noUi-handle:after { display: none; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+<title>F&O Pro Trading Dashboard</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { darkMode: 'class' }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.css">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<style>
+
+*{
+    box-sizing:border-box;
+}
+
+html,body{
+    margin:0;
+    padding:0;
+    width:100%;
+    min-height:100%;
+    overscroll-behavior-x:none;
+}
+
+body{
+    -webkit-tap-highlight-color:transparent;
+    overflow-x:hidden;
+}
+
+table.dataframe th,
+#dashboard-table th,
+.trend-table th{
+
+    position:sticky !important;
+    top:0 !important;
+
+    z-index:20 !important;
+
+    background-color:#172554 !important;
+    color:white !important;
+
+    cursor:pointer;
+    user-select:none;
+
+    white-space:nowrap;
+}
+
+#dashboard-scroll{
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior-x:contain;
+}
+
+#apex-chart-container{
+
+    touch-action:pan-y !important;
+
+    min-height:440px;
+
+    width:100%;
+
+    overflow:hidden;
+}
+
+.noUi-target,
+.noUi-handle{
+    touch-action:none !important;
+}
+
+.noUi-target{
+
+    background:#cbd5e1;
+    border:none;
+    box-shadow:none;
+
+    height:8px;
+}
+
+.noUi-connect{
+    background:#2962FF;
+}
+
+.noUi-handle{
+
+    width:22px !important;
+    height:22px !important;
+
+    border-radius:50%;
+
+    background:#2962FF;
+
+    border:none;
+
+    right:-11px !important;
+    top:-7px !important;
+
+    cursor:pointer;
+
+    box-shadow:0 2px 6px rgba(0,0,0,.3);
+}
+
+.noUi-handle:before,
+.noUi-handle:after{
+    display:none;
+}
+
+.mobile-table{
+    min-width:1100px;
+}
+
+@media(max-width:640px){
+
+    body{
+        padding:6px !important;
+    }
+
+    #topbar{
+        padding:6px !important;
+        margin-bottom:7px !important;
+    }
+
+    .tab-btn{
+        padding-left:9px !important;
+        padding-right:9px !important;
+        font-size:11px !important;
+    }
+
+    #time-box-container,
+    #toggle-container,
+    #theme-btn{
+        font-size:10px !important;
+        padding:5px 7px !important;
+    }
+
+    #dashboard-scroll{
+        max-height:82vh !important;
+    }
+
+    #dashboard-table{
+        font-size:11px !important;
+    }
+
+    #dashboard-table th,
+    #dashboard-table td{
+        padding:8px 7px !important;
+    }
+
+    #view-chart{
+        padding:7px !important;
+    }
+
+    #apex-chart-container{
+        min-height:380px;
+    }
+
+    #view-trend{
+        padding:8px !important;
+    }
+
+    .trend-table{
+        min-width:650px;
+    }
+
+}
+
+</style>
 </head>
-<body class="p-2 sm:p-4 bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200" id="body-tag">
 
-    <!-- TOP CONTROL BAR -->
-    <div class="w-full flex flex-wrap justify-between items-center mb-4 bg-white dark:bg-slate-900 p-2 sm:p-3 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 gap-2">
-        <div class="flex space-x-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-lg border border-slate-200 dark:border-slate-800">
-            <button onclick="switchTab('dash')" id="btn-dash" class="px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold bg-blue-600 text-white transition">📊 Dash</button>
-            <button onclick="switchTab('chart')" id="btn-chart" class="px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition">📈 CHART</button>
-            <button onclick="switchTab('trend')" id="btn-trend" class="px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition">🚀 TREND</button>
+
+<body
+id="body-tag"
+class="p-2 sm:p-4 bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200">
+
+
+<!-- =========================================================
+TOP CONTROL BAR
+========================================================= -->
+
+<div
+id="topbar"
+class="w-full flex flex-wrap justify-between items-center mb-4 bg-white dark:bg-slate-900 p-2 sm:p-3 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 gap-2">
+
+    <div
+    class="flex space-x-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-lg border border-slate-200 dark:border-slate-800">
+
+        <button
+        onclick="switchTab('dash')"
+        id="btn-dash"
+        class="tab-btn px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold bg-blue-600 text-white transition">
+        📊 Dash
+        </button>
+
+        <button
+        onclick="switchTab('chart')"
+        id="btn-chart"
+        class="tab-btn px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">
+        📈 CHART
+        </button>
+
+        <button
+        onclick="switchTab('trend')"
+        id="btn-trend"
+        class="tab-btn px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">
+        🚀 TREND
+        </button>
+
+    </div>
+
+
+    <div class="flex items-center space-x-2 sm:space-x-3">
+
+        <div
+        id="time-box-container"
+        class="border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 text-cyan-600 dark:text-cyan-400 font-bold text-xs sm:text-sm">
+
+            ⏱️ <span id="live-time">Waiting...</span>
+
         </div>
 
-        <div class="flex items-center space-x-2 sm:space-x-3">
-            <div id="time-box-container" class="border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 text-cyan-600 dark:text-cyan-400 font-bold text-xs sm:text-sm">
-                ⏱️ <span id="live-time">Waiting...</span>
-            </div>
-            <div id="toggle-container" class="flex items-center space-x-2 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800">
-                <span class="text-xs font-bold text-red-500">SHOW %</span>
-                <input type="checkbox" id="show-pct-toggle" checked onchange="renderDashboard()" class="w-4 h-4 accent-red-500 cursor-pointer">
-            </div>
-            <button onclick="toggleTheme()" id="theme-btn" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-bold text-amber-500 transition shadow-sm">
-                ☀️ Light
+
+        <div
+        id="toggle-container"
+        class="flex items-center space-x-2 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800">
+
+            <span class="text-xs font-bold text-red-500">
+                SHOW %
+            </span>
+
+            <input
+            type="checkbox"
+            id="show-pct-toggle"
+            checked
+            onchange="renderDashboard()"
+            class="w-4 h-4 accent-red-500 cursor-pointer">
+
+        </div>
+
+
+        <button
+        onclick="toggleTheme()"
+        id="theme-btn"
+        class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-bold text-amber-500 transition shadow-sm">
+
+            ☀️ Light
+
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+DASHBOARD
+========================================================= -->
+
+<div
+id="view-dash"
+class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden">
+
+    <div
+    id="dashboard-scroll"
+    class="overflow-x-auto max-h-[80vh]">
+
+        <table
+        id="dashboard-table"
+        class="w-full text-left border-collapse text-xs sm:text-sm mobile-table">
+
+            <thead>
+
+                <tr class="text-white border-b border-blue-900">
+
+                    <th onclick="sortTable(0)" class="p-3 text-center">
+                        SYMBOL ↕
+                    </th>
+
+                    <th onclick="sortTable(1)" class="p-3 text-center">
+                        OPENING ↕
+                    </th>
+
+                    <th onclick="sortTable(2)" class="p-3 text-center">
+                        VOL PCR ↕
+                    </th>
+
+                    <th onclick="sortTable(3)" class="p-3 text-center">
+                        OPTION PCR ↕
+                    </th>
+
+                    <th onclick="sortTable(4)" class="p-3 text-center">
+                        VOL CPR ↕
+                    </th>
+
+                    <th onclick="sortTable(5)" class="p-3 text-center">
+                        LTP CHANGE ↕
+                    </th>
+
+                    <th onclick="sortTable(6)" class="p-3 text-center">
+                        CHANGE % ↕
+                    </th>
+
+                    <th onclick="sortTable(7)" class="p-3 text-center">
+                        LTP ↕
+                    </th>
+
+                    <th onclick="sortTable(8)" class="p-3 text-center">
+                        CE CONTRACT ↕
+                    </th>
+
+                    <th onclick="sortTable(9)" class="p-3 text-center">
+                        PE CONTRACT ↕
+                    </th>
+
+                    <th onclick="sortTable(10)" class="p-3 text-center">
+                        PCR CHECKER ↕
+                    </th>
+
+                    <th onclick="sortTable(11)" class="p-3 text-center">
+                        VOL CHECKER ↕
+                    </th>
+
+                </tr>
+
+            </thead>
+
+            <tbody
+            id="table-body"
+            class="divide-y divide-slate-200 dark:divide-slate-800 font-semibold">
+
+                <tr>
+                    <td
+                    colspan="12"
+                    class="text-center p-8 text-slate-400">
+
+                        ⏳ Loading Data from Firebase...
+
+                    </td>
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+CHART
+========================================================= -->
+
+<div
+id="view-chart"
+class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 sm:p-6 hidden shadow-2xl">
+
+    <div
+    class="flex flex-wrap justify-between items-center mb-4 gap-2">
+
+        <select
+        id="stock-select"
+        onchange="updateChartData(true)"
+        class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white font-bold text-sm rounded-lg px-3 py-2 w-full sm:w-64 focus:outline-none focus:border-blue-500">
+
+            <option value="">
+                Select Stock...
+            </option>
+
+        </select>
+
+
+        <div
+        class="flex space-x-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-300 dark:border-slate-700">
+
+            <button
+            onclick="setChartMode('Vol CPR')"
+            id="mode-vol"
+            class="px-3 py-1.5 rounded-md text-xs font-bold bg-red-600 text-white">
+
+                Vol CPR
+
             </button>
+
+            <button
+            onclick="setChartMode('OPT PCR')"
+            id="mode-opt"
+            class="px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 dark:text-slate-400">
+
+                OPT PCR
+
+            </button>
+
         </div>
+
+
+        <button
+        onclick="resetChartZoom()"
+        class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3 py-2 rounded-lg">
+
+            🔄 Reset Zoom
+
+        </button>
+
     </div>
 
-    <!-- VIEW 1: DASHBOARD TABLE -->
-    <div id="view-dash" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden">
-        <div class="overflow-x-auto max-h-[80vh]">
-            <table class="w-full text-left border-collapse text-xs sm:text-sm">
-                <thead>
-                    <tr class="text-white border-b border-blue-900">
-                        <th onclick="sortTable(0)" class="p-3 text-center">SYMBOL ↕</th>
-                        <th onclick="sortTable(1)" class="p-3 text-center">OPENING ↕</th>
-                        <th onclick="sortTable(2)" class="p-3 text-center">VOL PCR ↕</th>
-                        <th onclick="sortTable(3)" class="p-3 text-center">OPTION PCR ↕</th>
-                        <th onclick="sortTable(4)" class="p-3 text-center">VOL CPR ↕</th>
-                        <th onclick="sortTable(5)" class="p-3 text-center">LTP CHANGE ↕</th>
-                        <th onclick="sortTable(6)" class="p-3 text-center">CHANGE % ↕</th>
-                        <th onclick="sortTable(7)" class="p-3 text-center">LTP ↕</th>
-                        <th onclick="sortTable(8)" class="p-3 text-center">CE CONTRACT ↕</th>
-                        <th onclick="sortTable(9)" class="p-3 text-center">PE CONTRACT ↕</th>
-                        <th id="col-checker-header" onclick="sortTable(10)" class="p-3 text-center">PCR CHECKER ↕</th>
-                        <th id="col-vol-checker-header" onclick="sortTable(11)" class="p-3 text-center">VOL CHECKER ↕</th>
-                    </tr>
-                </thead>
-                <tbody id="table-body" class="divide-y divide-slate-200 dark:divide-slate-800 font-semibold">
-                    <tr><td colspan="12" class="text-center p-8 text-slate-400">⏳ Loading Data from Firebase...</td></tr>
-                </tbody>
-            </table>
-        </div>
+
+    <div
+    id="apex-chart-container"
+    class="w-full">
     </div>
 
-    <!-- VIEW 2: PROFESSIONAL CHART -->
-    <div id="view-chart" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 sm:p-6 hidden shadow-2xl">
-        <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
-            <select id="stock-select" onchange="updateChartData(true)" class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white font-bold text-sm rounded-lg px-3 py-2 w-full sm:w-64 focus:outline-none focus:border-blue-500">
-                <option value="">Select Stock...</option>
-            </select>
-            <div class="flex space-x-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-300 dark:border-slate-700">
-                <button onclick="setChartMode('Vol CPR')" id="mode-vol" class="px-3 py-1.5 rounded-md text-xs font-bold bg-red-600 text-white transition">Vol CPR</button>
-                <button onclick="setChartMode('OPT PCR')" id="mode-opt" class="px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition">OPT PCR</button>
-            </div>
-            <button onclick="resetChartZoom()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3 py-2 rounded-lg transition shadow">🔄 Reset Zoom</button>
+
+    <div class="mt-6 px-4">
+
+        <div
+        class="flex justify-between text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">
+
+            <span id="lbl-start">
+                From: --:--
+            </span>
+
+            <span id="lbl-end">
+                To: --:--
+            </span>
+
         </div>
-        <div id="apex-chart-container" class="w-full"></div>
-        <div class="mt-6 px-4">
-            <div class="flex justify-between text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">
-                <span id="lbl-start">From: --:--</span>
-                <span id="lbl-end">To: --:--</span>
-            </div>
-            <div id="html-slider"></div>
-        </div>
+
+        <div id="html-slider"></div>
+
     </div>
 
-    <!-- VIEW 3: TREND SCANNER -->
-    <div id="view-trend" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hidden shadow-2xl">
-        <h2 class="text-lg font-bold text-cyan-600 dark:text-cyan-400 mb-4">🚀 Divergence Trend Scanner</h2>
-        <div class="flex space-x-2 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2">
-            <button onclick="switchTrendSubTab('bullish')" id="btn-sub-bull" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-green-600 text-white transition">🟢 Bullish Stocks</button>
-            <button onclick="switchTrendSubTab('bearish')" id="btn-sub-bear" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400 transition">🔴 Bearish Stocks</button>
-        </div>
-        <div id="subtab-bullish" class="overflow-x-auto max-h-[600px]"><p class="text-slate-400 text-xs text-center p-4">Waiting for data...</p></div>
-        <div id="subtab-bearish" class="overflow-x-auto max-h-[600px] hidden"><p class="text-slate-400 text-xs text-center p-4">Waiting for data...</p></div>
+</div>
+
+
+<!-- =========================================================
+TREND SCANNER
+========================================================= -->
+
+<div
+id="view-trend"
+class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hidden shadow-2xl">
+
+    <h2
+    class="text-lg font-bold text-cyan-600 dark:text-cyan-400 mb-4">
+
+        🚀 Divergence Trend Scanner
+
+    </h2>
+
+
+    <div
+    class="flex space-x-2 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2">
+
+        <button
+        onclick="switchTrendSubTab('bullish')"
+        id="btn-sub-bull"
+        class="px-4 py-1.5 rounded-lg text-xs font-bold bg-green-600 text-white">
+
+            🟢 Bullish Stocks
+
+        </button>
+
+
+        <button
+        onclick="switchTrendSubTab('bearish')"
+        id="btn-sub-bear"
+        class="px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400">
+
+            🔴 Bearish Stocks
+
+        </button>
+
     </div>
 
-    <script>
-        const FIREBASE_URL = "https://fyers-bot-606b9-default-rtdb.firebaseio.com";
-        firebase.initializeApp({ databaseURL: FIREBASE_URL });
-        
-        let globalDashboardData = [];
-        let globalChartRawData = [];
-        
-        let currentChartMode = 'Vol CPR';
-        let apexChartInstance = null;
-        let sliderInstance = null;
-        let currentActiveStock = "";
-        let currentActiveMode = "";
-        
-        let cachedTimeCategories = [];
-        let cachedIndicatorValues = [];
-        let cachedLtpValues = [];
 
-        function getISTDateStr() {
-            let d = new Date();
-            let utc = d.getTime() + (d.getTimezoneOffset() * 60000);
-            let ist = new Date(utc + (3600000 * 5.5));
-            let yr = ist.getFullYear();
-            let mo = String(ist.getMonth() + 1).padStart(2, '0');
-            let da = String(ist.getDate()).padStart(2, '0');
-            return `${yr}-${mo}-${da}`; 
+    <div
+    id="subtab-bullish"
+    class="overflow-x-auto max-h-[600px]">
+
+        <p class="text-slate-400 text-xs text-center p-4">
+            Waiting for data...
+        </p>
+
+    </div>
+
+
+    <div
+    id="subtab-bearish"
+    class="overflow-x-auto max-h-[600px] hidden">
+
+        <p class="text-slate-400 text-xs text-center p-4">
+            Waiting for data...
+        </p>
+
+    </div>
+
+</div>
+
+
+<script>
+
+/* =========================================================
+CONFIG
+========================================================= */
+
+const FIREBASE_URL =
+"https://fyers-bot-606b9-default-rtdb.firebaseio.com";
+
+firebase.initializeApp({
+    databaseURL:FIREBASE_URL
+});
+
+
+/* =========================================================
+GLOBAL STATE
+========================================================= */
+
+let globalDashboardData = [];
+
+let globalChartRawData = [];
+
+let currentChartMode = "Vol CPR";
+
+let apexChartInstance = null;
+
+let sliderInstance = null;
+
+let currentActiveStock = "";
+
+let currentActiveMode = "";
+
+let cachedTimeCategories = [];
+
+let cachedIndicatorValues = [];
+
+let cachedLtpValues = [];
+
+let sortDirections = {};
+
+let lastDashboardHash = "";
+
+let lastChartHash = "";
+
+let trendTimer = null;
+
+let dashboardTimer = null;
+
+let chartTimer = null;
+
+let trendRunning = false;
+
+
+/* =========================================================
+IST DATE
+========================================================= */
+
+function getISTDateStr(){
+
+    const now = new Date();
+
+    const ist =
+    new Date(
+        now.toLocaleString(
+            "en-US",
+            {timeZone:"Asia/Kolkata"}
+        )
+    );
+
+    const yr =
+    ist.getFullYear();
+
+    const mo =
+    String(ist.getMonth()+1)
+    .padStart(2,"0");
+
+    const da =
+    String(ist.getDate())
+    .padStart(2,"0");
+
+    return `${yr}-${mo}-${da}`;
+}
+
+
+/* =========================================================
+SAFE NUMBER
+========================================================= */
+
+function num(value, fallback=0){
+
+    const n = parseFloat(value);
+
+    return Number.isFinite(n)
+        ? n
+        : fallback;
+}
+
+
+/* =========================================================
+SAFE TEXT
+========================================================= */
+
+function safeText(value){
+
+    return String(
+        value === undefined ||
+        value === null
+        ? ""
+        : value
+    )
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+}
+
+
+/* =========================================================
+THEME
+========================================================= */
+
+function toggleTheme(){
+
+    const body =
+    document.getElementById("body-tag");
+
+    const btn =
+    document.getElementById("theme-btn");
+
+    if(body.classList.contains("dark")){
+
+        body.classList.remove("dark");
+
+        btn.innerText="☀️ Light";
+
+        btn.className =
+        "px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-bold text-amber-500 transition shadow-sm";
+
+    }else{
+
+        body.classList.add("dark");
+
+        btn.innerText="🌙 Dark";
+
+        btn.className =
+        "px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-950 text-xs font-bold text-yellow-400 transition shadow-sm";
+
+    }
+
+    if(
+        !document
+        .getElementById("view-chart")
+        .classList
+        .contains("hidden")
+    ){
+
+        updateChartData(true);
+
+    }
+
+}
+
+
+/* =========================================================
+TAB SWITCH
+========================================================= */
+
+function switchTab(tab){
+
+    ["dash","chart","trend"]
+    .forEach(t=>{
+
+        document
+        .getElementById(`view-${t}`)
+        .classList
+        .add("hidden");
+
+        document
+        .getElementById(`btn-${t}`)
+        .className =
+        "tab-btn px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400 transition";
+
+    });
+
+
+    document
+    .getElementById(`view-${tab}`)
+    .classList
+    .remove("hidden");
+
+
+    document
+    .getElementById(`btn-${tab}`)
+    .className =
+    "tab-btn px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold bg-blue-600 text-white transition";
+
+
+    if(tab==="chart"){
+
+        setTimeout(
+            ()=>updateChartData(true),
+            100
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+TREND TAB
+========================================================= */
+
+function switchTrendSubTab(sub){
+
+    const bull =
+    document.getElementById("subtab-bullish");
+
+    const bear =
+    document.getElementById("subtab-bearish");
+
+    const btnBull =
+    document.getElementById("btn-sub-bull");
+
+    const btnBear =
+    document.getElementById("btn-sub-bear");
+
+
+    if(sub==="bullish"){
+
+        bull.classList.remove("hidden");
+
+        bear.classList.add("hidden");
+
+        btnBull.className =
+        "px-4 py-1.5 rounded-lg text-xs font-bold bg-green-600 text-white";
+
+        btnBear.className =
+        "px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400";
+
+    }else{
+
+        bull.classList.add("hidden");
+
+        bear.classList.remove("hidden");
+
+        btnBear.className =
+        "px-4 py-1.5 rounded-lg text-xs font-bold bg-red-600 text-white";
+
+        btnBull.className =
+        "px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400";
+
+    }
+
+}
+
+
+/* =========================================================
+FIREBASE DASHBOARD
+========================================================= */
+
+firebase
+.database()
+.ref("Dashboard/Latest")
+.on("value",(snapshot)=>{
+
+    const val =
+    snapshot.val();
+
+    if(!val) return;
+
+
+    const timeEl =
+    document.getElementById("live-time");
+
+    if(val.time){
+
+        timeEl.innerText =
+        new Date(
+            val.time * 1000
+        ).toLocaleTimeString();
+
+    }
+
+
+    const newData =
+    Array.isArray(val.data)
+    ? val.data
+    : [];
+
+
+    globalDashboardData =
+    newData;
+
+
+    /*
+    IMPORTANT:
+    Do not render immediately.
+    This prevents mobile freeze when
+    Firebase sends multiple updates.
+    */
+
+    clearTimeout(dashboardTimer);
+
+    dashboardTimer =
+    setTimeout(()=>{
+
+        renderDashboard();
+
+        populateStockDropdown();
+
+        scheduleTrendScanner();
+
+    },250);
+
+});
+
+
+/* =========================================================
+FIREBASE CHART HISTORY
+========================================================= */
+
+firebase
+.database()
+.ref("ChartHistory")
+.on("value",(snapshot)=>{
+
+    const val =
+    snapshot.val();
+
+    if(!val) return;
+
+
+    const todayPrefix =
+    getISTDateStr()
+    .replace(/-/g,"");
+
+
+    let rows=[];
+
+
+    Object.keys(val)
+    .forEach(k=>{
+
+        if(!k.startsWith(todayPrefix))
+            return;
+
+        const item =
+        val[k];
+
+
+        if(
+            item &&
+            Array.isArray(item.data)
+        ){
+
+            rows =
+            rows.concat(item.data);
+
         }
 
-        function toggleTheme() {
-            const body = document.getElementById('body-tag');
-            const btn = document.getElementById('theme-btn');
-            if (body.classList.contains('dark')) {
-                body.classList.remove('dark');
-                btn.innerText = "☀️ Light";
-                btn.className = "px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-bold text-amber-500 transition shadow-sm";
-            } else {
-                body.classList.add('dark');
-                btn.innerText = "🌙 Dark";
-                btn.className = "px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-950 text-xs font-bold text-yellow-400 transition shadow-sm";
-            }
-            if (!document.getElementById('view-chart').classList.contains('hidden')) {
-                updateChartData(true); 
-            }
+    });
+
+
+    globalChartRawData =
+    rows;
+
+
+    clearTimeout(chartTimer);
+
+    chartTimer =
+    setTimeout(()=>{
+
+        if(
+            !document
+            .getElementById("view-chart")
+            .classList
+            .contains("hidden")
+        ){
+
+            updateChartData(false);
+
         }
 
-        firebase.database().ref("Dashboard/Latest").on("value", (snapshot) => {
-            const val = snapshot.val();
-            if (!val) return;
-            document.getElementById("live-time").innerText = new Date(val.time * 1000).toLocaleTimeString();
-            globalDashboardData = val.data || [];
-            renderDashboard();
-            populateStockDropdown();
-            runTrendScanner(); 
-        });
+        scheduleTrendScanner();
 
-        firebase.database().ref("ChartHistory").on("value", (snapshot) => {
-            const val = snapshot.val();
-            if (!val) return;
-            
-            let todayPrefix = getISTDateStr().replace(/-/g, ""); 
-            let rows = [];
-            
-            Object.keys(val).forEach(k => {
-                if (k.startsWith(todayPrefix)) {
-                    if (val[k] && Array.isArray(val[k].data)) {
-                        rows = rows.concat(val[k].data);
-                    }
+    },400);
+
+});
+
+
+/* =========================================================
+POPULATE STOCK DROPDOWN
+========================================================= */
+
+function populateStockDropdown(){
+
+    const select =
+    document.getElementById("stock-select");
+
+    if(!select) return;
+
+
+    const current =
+    select.value;
+
+
+    let symbols=[];
+
+
+    if(globalDashboardData.length){
+
+        symbols =
+        globalDashboardData
+        .map(
+            i=>i.SYMS || i.SYMBOL
+        )
+        .filter(Boolean);
+
+    }else{
+
+        symbols =
+        [
+            ...new Set(
+                globalChartRawData
+                .map(
+                    i=>
+                    i.Symbol ||
+                    i.SYMS ||
+                    i.SYMBOL
+                )
+                .filter(Boolean)
+            )
+        ];
+
+    }
+
+
+    if(!symbols.length)
+        return;
+
+
+    symbols =
+    [...new Set(symbols)]
+    .sort();
+
+
+    /*
+    Don't rebuild select if
+    symbols are unchanged.
+    */
+
+    const oldSymbols =
+    [...select.options]
+    .map(o=>o.value);
+
+
+    if(
+        oldSymbols.length === symbols.length &&
+        oldSymbols.every(
+            (v,i)=>v===symbols[i]
+        )
+    ){
+
+        if(
+            current &&
+            symbols.includes(current)
+        ){
+
+            select.value=current;
+
+        }
+
+        return;
+
+    }
+
+
+    const frag =
+    document.createDocumentFragment();
+
+
+    symbols.forEach(sym=>{
+
+        const opt =
+        document.createElement("option");
+
+        opt.value=sym;
+
+        opt.textContent=sym;
+
+        frag.appendChild(opt);
+
+    });
+
+
+    select.innerHTML="";
+
+    select.appendChild(frag);
+
+
+    if(
+        current &&
+        symbols.includes(current)
+    ){
+
+        select.value=current;
+
+    }else{
+
+        select.value=symbols[0];
+
+    }
+
+}
+
+
+/* =========================================================
+CHART MODE
+========================================================= */
+
+function setChartMode(mode){
+
+    currentChartMode =
+    mode;
+
+
+    const vol =
+    document.getElementById("mode-vol");
+
+    const opt =
+    document.getElementById("mode-opt");
+
+
+    if(mode==="Vol CPR"){
+
+        vol.className =
+        "px-3 py-1.5 rounded-md text-xs font-bold bg-red-600 text-white";
+
+        opt.className =
+        "px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 dark:text-slate-400";
+
+    }else{
+
+        opt.className =
+        "px-3 py-1.5 rounded-md text-xs font-bold bg-blue-600 text-white";
+
+        vol.className =
+        "px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 dark:text-slate-400";
+
+    }
+
+
+    updateChartData(true);
+
+}
+
+
+/* =========================================================
+CHART DATA
+========================================================= */
+
+function updateChartData(forceRebuild=false){
+
+    if(
+        document
+        .getElementById("view-chart")
+        .classList
+        .contains("hidden")
+    )
+        return;
+
+
+    const selectedStock =
+    document
+    .getElementById("stock-select")
+    .value;
+
+
+    if(!selectedStock)
+        return;
+
+
+    const todayStr =
+    getISTDateStr();
+
+
+    const rows =
+    globalChartRawData
+    .filter(r=>{
+
+        const d =
+        String(
+            r.Date || ""
+        ).trim();
+
+        const s =
+        String(
+            r.Symbol ||
+            r.SYMS ||
+            r.SYMBOL ||
+            ""
+        ).trim();
+
+        const t =
+        String(
+            r.Time || ""
+        ).trim();
+
+        return(
+            d===todayStr &&
+            s===selectedStock &&
+            t>="09:00" &&
+            t!=="--:--"
+        );
+
+    });
+
+
+    if(!rows.length){
+
+        if(apexChartInstance){
+
+            apexChartInstance.destroy();
+
+            apexChartInstance=null;
+
+        }
+
+
+        document
+        .getElementById("apex-chart-container")
+        .innerHTML =
+        `<p class="text-center text-slate-400 font-bold mt-10">
+        Waiting for today's market data...
+        </p>`;
+
+        return;
+
+    }
+
+
+    /*
+    Map by time.
+    This is considerably faster than repeatedly
+    filtering the same array.
+    */
+
+    const timeMap =
+    new Map();
+
+
+    rows.forEach(r=>{
+
+        const t =
+        String(r.Time).trim();
+
+
+        let obj =
+        timeMap.get(t);
+
+
+        if(!obj){
+
+            obj={
+                Time:t,
+                "Vol CPR":null,
+                "OPT PCR":null,
+                "LTP":null
+            };
+
+            timeMap.set(t,obj);
+
+        }
+
+
+        const vCpr =
+        r["VOL CPR"] ??
+        r["Vol CPR"] ??
+        r["V_CPR"] ??
+        r.VOL_CPR;
+
+
+        const oPcr =
+        r["OPT PCR"] ??
+        r["Opt PCR"] ??
+        r["O_PCR"] ??
+        r.OPT_PCR;
+
+
+        const ltp =
+        r["LTP"] ??
+        r.ltp;
+
+
+        if(
+            vCpr!==undefined &&
+            vCpr!==null &&
+            vCpr!==""
+        )
+            obj["Vol CPR"]=num(vCpr,null);
+
+
+        if(
+            oPcr!==undefined &&
+            oPcr!==null &&
+            oPcr!==""
+        )
+            obj["OPT PCR"]=num(oPcr,null);
+
+
+        if(
+            ltp!==undefined &&
+            ltp!==null &&
+            ltp!==""
+        )
+            obj.LTP=num(ltp,null);
+
+    });
+
+
+    let data =
+    Array.from(timeMap.values());
+
+
+    data.sort(
+        (a,b)=>
+        a.Time.localeCompare(b.Time)
+    );
+
+
+    /*
+    Forward fill.
+    */
+
+    let lastVol=null;
+
+    let lastOpt=null;
+
+    let lastLtp=null;
+
+
+    data.forEach(r=>{
+
+        if(
+            r["Vol CPR"]!==null &&
+            Number.isFinite(r["Vol CPR"])
+        ){
+
+            lastVol=
+            r["Vol CPR"];
+
+        }else{
+
+            r["Vol CPR"]=
+            lastVol;
+
+        }
+
+
+        if(
+            r["OPT PCR"]!==null &&
+            Number.isFinite(r["OPT PCR"])
+        ){
+
+            lastOpt=
+            r["OPT PCR"];
+
+        }else{
+
+            r["OPT PCR"]=
+            lastOpt;
+
+        }
+
+
+        if(
+            r.LTP!==null &&
+            Number.isFinite(r.LTP)
+        ){
+
+            lastLtp=
+            r.LTP;
+
+        }else{
+
+            r.LTP=
+            lastLtp;
+
+        }
+
+    });
+
+
+    data =
+    data.filter(r=>{
+
+        const target =
+        currentChartMode==="Vol CPR"
+        ? r["Vol CPR"]
+        : r["OPT PCR"];
+
+        return(
+            target!==null &&
+            r.LTP!==null
+        );
+
+    });
+
+
+    if(!data.length)
+        return;
+
+
+    cachedTimeCategories =
+    data.map(r=>r.Time);
+
+
+    cachedIndicatorValues =
+    data.map(
+        r=>
+        currentChartMode==="Vol CPR"
+        ? r["Vol CPR"]
+        : r["OPT PCR"]
+    );
+
+
+    cachedLtpValues =
+    data.map(r=>r.LTP);
+
+
+    const changedStock =
+    currentActiveStock!==selectedStock;
+
+
+    const changedMode =
+    currentActiveMode!==currentChartMode;
+
+
+    const rebuild =
+    forceRebuild ||
+    changedStock ||
+    changedMode ||
+    !apexChartInstance;
+
+
+    currentActiveStock =
+    selectedStock;
+
+    currentActiveMode =
+    currentChartMode;
+
+
+    setupHtmlSlider(
+        cachedTimeCategories,
+        rebuild
+    );
+
+
+    let sIdx=0;
+
+    let eIdx=
+    cachedTimeCategories.length-1;
+
+
+    const sliderEl =
+    document.getElementById("html-slider");
+
+
+    if(
+        sliderEl &&
+        sliderEl.noUiSlider
+    ){
+
+        const vals =
+        sliderEl.noUiSlider.get();
+
+        sIdx=
+        parseInt(vals[0]);
+
+        eIdx=
+        parseInt(vals[1]);
+
+    }
+
+
+    renderApexChart(
+        cachedTimeCategories,
+        cachedIndicatorValues,
+        cachedLtpValues,
+        sIdx,
+        eIdx,
+        rebuild
+    );
+
+}
+
+
+/* =========================================================
+SLIDER
+========================================================= */
+
+function setupHtmlSlider(
+    categories,
+    resetRange
+){
+
+    const sliderEl =
+    document.getElementById("html-slider");
+
+
+    if(!categories.length)
+        return;
+
+
+    const maxRange =
+    Math.max(
+        1,
+        categories.length-1
+    );
+
+
+    if(!sliderEl.noUiSlider){
+
+        noUiSlider.create(
+            sliderEl,
+            {
+                start:[0,maxRange],
+                connect:true,
+                range:{
+                    min:0,
+                    max:maxRange
+                },
+                step:1
+            }
+        );
+
+
+        sliderEl.noUiSlider.on(
+            "slide",
+            values=>{
+
+                const s=
+                parseInt(values[0]);
+
+                const e=
+                parseInt(values[1]);
+
+
+                document
+                .getElementById("lbl-start")
+                .innerText =
+                "From: "+
+                (categories[s]||"--:--");
+
+
+                document
+                .getElementById("lbl-end")
+                .innerText =
+                "To: "+
+                (categories[e]||"--:--");
+
+            }
+        );
+
+
+        sliderEl.noUiSlider.on(
+            "set",
+            values=>{
+
+                const s=
+                parseInt(values[0]);
+
+                const e=
+                parseInt(values[1]);
+
+
+                renderApexChart(
+                    cachedTimeCategories,
+                    cachedIndicatorValues,
+                    cachedLtpValues,
+                    s,
+                    e,
+                    false
+                );
+
+            }
+        );
+
+    }else{
+
+        sliderEl.noUiSlider.updateOptions(
+            {
+                range:{
+                    min:0,
+                    max:maxRange
                 }
-            });
-            
-            globalChartRawData = rows;
-            
-            if (!document.getElementById('view-chart').classList.contains('hidden')) {
-                updateChartData(false);
+            },
+            false
+        );
+
+
+        if(resetRange){
+
+            sliderEl.noUiSlider.set(
+                [0,maxRange]
+            );
+
+        }
+
+    }
+
+
+    const vals =
+    sliderEl.noUiSlider.get();
+
+
+    document
+    .getElementById("lbl-start")
+    .innerText =
+    "From: "+
+    (
+        categories[
+            parseInt(vals[0])
+        ] || "--:--"
+    );
+
+
+    document
+    .getElementById("lbl-end")
+    .innerText =
+    "To: "+
+    (
+        categories[
+            parseInt(vals[1])
+        ] || "--:--"
+    );
+
+}
+
+
+/* =========================================================
+APEX CHART
+========================================================= */
+
+function renderApexChart(
+    categories,
+    indicatorVals,
+    ltpVals,
+    sIdx,
+    eIdx,
+    forceRebuild
+){
+
+    if(!categories.length)
+        return;
+
+
+    sIdx=
+    Math.max(
+        0,
+        Math.min(
+            sIdx,
+            categories.length-1
+        )
+    );
+
+
+    eIdx=
+    Math.max(
+        0,
+        Math.min(
+            eIdx,
+            categories.length-1
+        )
+    );
+
+
+    if(sIdx>eIdx)
+        return;
+
+
+    const sliceCats =
+    categories.slice(
+        sIdx,
+        eIdx+1
+    );
+
+
+    const sliceInd =
+    indicatorVals.slice(
+        sIdx,
+        eIdx+1
+    );
+
+
+    const sliceLtp =
+    ltpVals.slice(
+        sIdx,
+        eIdx+1
+    );
+
+
+    const indColor =
+    currentChartMode==="Vol CPR"
+    ? "#FF4D4D"
+    : "#00BFFF";
+
+
+    const isDark =
+    document
+    .getElementById("body-tag")
+    .classList
+    .contains("dark");
+
+
+    const container =
+    document
+    .getElementById("apex-chart-container");
+
+
+    try{
+
+        if(
+            !apexChartInstance ||
+            forceRebuild
+        ){
+
+            if(apexChartInstance){
+
+                apexChartInstance.destroy();
+
+                apexChartInstance=null;
+
             }
-            runTrendScanner();
+
+
+            container.innerHTML="";
+
+
+            const options={
+
+                series:[
+
+                    {
+                        name:currentChartMode,
+                        type:"area",
+                        data:sliceInd
+                    },
+
+                    {
+                        name:"LTP",
+                        type:"line",
+                        data:sliceLtp
+                    }
+
+                ],
+
+
+                chart:{
+
+                    height:440,
+
+                    type:"line",
+
+                    toolbar:{
+                        show:false
+                    },
+
+                    zoom:{
+                        enabled:false
+                    },
+
+                    animations:{
+                        enabled:false
+                    },
+
+                    background:"transparent",
+
+                    redrawOnParentResize:true
+
+                },
+
+
+                colors:[
+                    indColor,
+                    "#00CC66"
+                ],
+
+
+                stroke:{
+                    curve:"smooth",
+                    width:[3,3]
+                },
+
+
+                fill:{
+                    type:[
+                        "gradient",
+                        "solid"
+                    ],
+
+                    gradient:{
+                        shadeIntensity:1,
+                        opacityFrom:.35,
+                        opacityTo:.05,
+                        stops:[0,100]
+                    }
+
+                },
+
+
+                dataLabels:{
+                    enabled:false
+                },
+
+
+                xaxis:{
+
+                    categories:sliceCats,
+
+                    labels:{
+                        style:{
+                            colors:
+                            isDark
+                            ? "#94a3b8"
+                            : "#888"
+                        },
+
+                        fontSize:"11px"
+                    },
+
+                    tickAmount:
+                    window.innerWidth<600
+                    ? 6
+                    : 10
+
+                },
+
+
+                yaxis:[
+
+                    {
+
+                        title:{
+                            text:currentChartMode,
+                            style:{
+                                color:indColor
+                            }
+                        },
+
+                        labels:{
+                            style:{
+                                colors:indColor
+                            }
+                        },
+
+                        decimalsInFloat:2
+
+                    },
+
+
+                    {
+
+                        opposite:true,
+
+                        title:{
+                            text:"LTP",
+                            style:{
+                                color:"#00CC66"
+                            }
+                        },
+
+                        labels:{
+                            style:{
+                                colors:"#00CC66"
+                            }
+                        },
+
+                        decimalsInFloat:2
+
+                    }
+
+                ],
+
+
+                tooltip:{
+
+                    shared:true,
+
+                    intersect:false,
+
+                    theme:
+                    isDark
+                    ? "dark"
+                    : "light"
+
+                },
+
+
+                legend:{
+
+                    position:"top",
+
+                    horizontalAlign:"right",
+
+                    labels:{
+                        colors:
+                        isDark
+                        ? "#fff"
+                        : "#000"
+                    }
+
+                },
+
+
+                grid:{
+
+                    borderColor:
+                    isDark
+                    ? "#334155"
+                    : "#e2e8f0",
+
+                    strokeDashArray:3
+
+                }
+
+            };
+
+
+            apexChartInstance =
+            new ApexCharts(
+                container,
+                options
+            );
+
+
+            apexChartInstance.render();
+
+
+        }else{
+
+
+            /*
+            LIGHTWEIGHT UPDATE.
+            Chart is NOT destroyed.
+            */
+
+            apexChartInstance.updateOptions(
+                {
+
+                    xaxis:{
+
+                        categories:sliceCats,
+
+                        labels:{
+                            style:{
+                                colors:
+                                isDark
+                                ? "#94a3b8"
+                                : "#888"
+                            },
+
+                            fontSize:"11px"
+                        },
+
+                        tickAmount:
+                        window.innerWidth<600
+                        ? 6
+                        : 10
+
+                    },
+
+
+                    yaxis:[
+
+                        {
+
+                            title:{
+                                text:currentChartMode,
+                                style:{
+                                    color:indColor
+                                }
+                            },
+
+                            labels:{
+                                style:{
+                                    colors:indColor
+                                }
+                            },
+
+                            decimalsInFloat:2
+
+                        },
+
+                        {
+
+                            opposite:true,
+
+                            title:{
+                                text:"LTP",
+                                style:{
+                                    color:"#00CC66"
+                                }
+                            },
+
+                            labels:{
+                                style:{
+                                    colors:"#00CC66"
+                                }
+                            },
+
+                            decimalsInFloat:2
+
+                        }
+
+                    ],
+
+
+                    colors:[
+                        indColor,
+                        "#00CC66"
+                    ],
+
+
+                    grid:{
+                        borderColor:
+                        isDark
+                        ? "#334155"
+                        : "#e2e8f0"
+                    },
+
+
+                    tooltip:{
+                        theme:
+                        isDark
+                        ? "dark"
+                        : "light"
+                    },
+
+
+                    legend:{
+                        labels:{
+                            colors:
+                            isDark
+                            ? "#fff"
+                            : "#000"
+                        }
+                    }
+
+                },
+
+                false,
+
+                false
+
+            );
+
+
+            apexChartInstance.updateSeries(
+
+                [
+
+                    {
+                        name:currentChartMode,
+                        data:sliceInd
+                    },
+
+                    {
+                        name:"LTP",
+                        data:sliceLtp
+                    }
+
+                ],
+
+                false
+
+            );
+
+        }
+
+    }catch(err){
+
+        console.warn(
+            "Chart update error:",
+            err
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+RESET CHART
+========================================================= */
+
+function resetChartZoom(){
+
+    const sliderEl =
+    document.getElementById(
+        "html-slider"
+    );
+
+
+    if(
+        sliderEl &&
+        sliderEl.noUiSlider &&
+        cachedTimeCategories.length
+    ){
+
+        const end =
+        cachedTimeCategories.length-1;
+
+
+        sliderEl.noUiSlider.set(
+            [0,end]
+        );
+
+
+        renderApexChart(
+            cachedTimeCategories,
+            cachedIndicatorValues,
+            cachedLtpValues,
+            0,
+            end,
+            false
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+TREND SCANNER SCHEDULER
+========================================================= */
+
+function scheduleTrendScanner(){
+
+    clearTimeout(trendTimer);
+
+
+    /*
+    Don't calculate immediately.
+    Wait for Firebase bursts to settle.
+    */
+
+    trendTimer =
+    setTimeout(
+        runTrendScanner,
+        800
+    );
+
+}
+
+
+/* =========================================================
+TREND SCANNER
+========================================================= */
+
+function runTrendScanner(){
+
+    if(trendRunning)
+        return;
+
+
+    if(
+        !globalChartRawData.length ||
+        !globalDashboardData.length
+    )
+        return;
+
+
+    trendRunning=true;
+
+
+    try{
+
+        const todayStr =
+        getISTDateStr();
+
+
+        /*
+        Filter today's records ONCE.
+        */
+
+        const day_df =
+        globalChartRawData.filter(
+            r=>
+            String(
+                r.Date || ""
+            ).trim()===todayStr
+        );
+
+
+        if(!day_df.length)
+            return;
+
+
+        /*
+        Latest dashboard lookup.
+        */
+
+        const latestLookup={};
+
+
+        globalDashboardData
+        .forEach(item=>{
+
+            const sym =
+            item.SYMS ||
+            item.SYMBOL;
+
+            if(sym)
+                latestLookup[sym]=item;
+
         });
 
-        function switchTab(tab) {
-            ['dash', 'chart', 'trend'].forEach(t => {
-                document.getElementById(`view-${t}`).classList.add('hidden');
-                document.getElementById(`btn-${t}`).className = "px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition";
-            });
-            document.getElementById(`view-${tab}`).classList.remove('hidden');
-            document.getElementById(`btn-${tab}`).className = "px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold bg-blue-600 text-white transition";
-            
-            if (tab === 'chart') {
-                setTimeout(() => { updateChartData(true); }, 150);
-            }
-        }
 
-        function switchTrendSubTab(sub) {
-            if (sub === 'bullish') {
-                document.getElementById('subtab-bullish').classList.remove('hidden');
-                document.getElementById('subtab-bearish').classList.add('hidden');
-                document.getElementById('btn-sub-bull').className = "px-4 py-1.5 rounded-lg text-xs font-bold bg-green-600 text-white transition";
-                document.getElementById('btn-sub-bear').className = "px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400 transition";
-            } else {
-                document.getElementById('subtab-bullish').classList.add('hidden');
-                document.getElementById('subtab-bearish').classList.remove('hidden');
-                document.getElementById('btn-sub-bear').className = "px-4 py-1.5 rounded-lg text-xs font-bold bg-red-600 text-white transition";
-                document.getElementById('btn-sub-bull').className = "px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400 transition";
-            }
-        }
+        /*
+        Group chart history by symbol.
+        This avoids repeatedly doing:
+        day_df.filter(...)
+        */
 
-        function populateStockDropdown() {
-            const select = document.getElementById("stock-select");
-            const currentSelected = select.value;
-            let symbols = [];
-            
-            if (globalDashboardData.length > 0) {
-                symbols = globalDashboardData.map(i => i.SYMS || i.SYMBOL).filter(Boolean);
-            } else if (globalChartRawData.length > 0) {
-                symbols = [...new Set(globalChartRawData.map(i => i.Symbol || i.SYMS || i.SYMBOL).filter(Boolean))];
-            }
-            
-            if (symbols.length === 0) return;
-            
-            select.innerHTML = "";
-            symbols.sort().forEach(sym => {
-                let opt = document.createElement("option");
-                opt.value = sym;
-                opt.innerText = sym;
-                select.appendChild(opt);
-            });
-            
-            if (currentSelected && symbols.includes(currentSelected)) {
-                select.value = currentSelected;
-            } else {
-                select.value = symbols[0];
-            }
-        }
+        const symbolMap =
+        new Map();
 
-        function setChartMode(mode) {
-            currentChartMode = mode;
-            if (mode === 'Vol CPR') {
-                document.getElementById('mode-vol').className = "px-3 py-1.5 rounded-md text-xs font-bold bg-red-600 text-white transition";
-                document.getElementById('mode-opt').className = "px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition";
-            } else {
-                document.getElementById('mode-opt').className = "px-3 py-1.5 rounded-md text-xs font-bold bg-blue-600 text-white transition";
-                document.getElementById('mode-vol').className = "px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition";
-            }
-            updateChartData(true); 
-        }
 
-        function updateChartData(forceRebuild = false) {
-            if (document.getElementById('view-chart').classList.contains('hidden')) return;
-            
-            const selectedStock = document.getElementById("stock-select").value;
-            if (!selectedStock) return;
+        day_df.forEach(r=>{
 
-            let todayStr = getISTDateStr();
+            const sym =
+            String(
+                r.Symbol ||
+                r.SYMS ||
+                r.SYMBOL ||
+                ""
+            ).trim();
 
-            // 1. Filter out bad times (like 00:00) and only pick today's data
-            let df_sym_raw = globalChartRawData.filter(r => {
-                let d = (r['Date'] || "").toString().trim();
-                let s = (r['Symbol'] || r['SYMS'] || "").toString().trim();
-                let t = (r['Time'] || "").toString().trim();
-                return d === todayStr && s === selectedStock && t >= "09:00" && t !== "--:--";
-            });
 
-            if (df_sym_raw.length === 0) {
-                if (apexChartInstance) { apexChartInstance.destroy(); apexChartInstance = null; }
-                document.getElementById('apex-chart-container').innerHTML = `<p class="text-center text-slate-400 font-bold mt-10">Waiting for today's market data...</p>`;
+            if(!sym)
                 return;
-            }
 
-            // 2. Safely extract and merge values
-            let timeMap = new Map();
-            df_sym_raw.forEach(r => {
-                let t = r['Time'].trim();
-                if (!timeMap.has(t)) {
-                    timeMap.set(t, { Time: t, 'Vol CPR': null, 'OPT PCR': null, 'LTP': null });
+
+            if(!symbolMap.has(sym))
+                symbolMap.set(sym,[]);
+
+
+            symbolMap
+            .get(sym)
+            .push(r);
+
+        });
+
+
+        const bullishRows=[];
+
+        const bearishRows=[];
+
+
+        symbolMap.forEach(
+            (sdf,sym)=>{
+
+                if(sdf.length<5)
+                    return;
+
+
+                sdf.sort(
+                    (a,b)=>
+                    String(
+                        a.Time||""
+                    ).localeCompare(
+                        String(
+                            b.Time||""
+                        )
+                    )
+                );
+
+
+                const volSeries=[];
+
+                const pcrSeries=[];
+
+                const ltpSeries=[];
+
+
+                sdf.forEach(r=>{
+
+                    const v=
+                    num(
+                        r["VOL CPR"] ??
+                        r["Vol CPR"] ??
+                        r["V_CPR"],
+                        NaN
+                    );
+
+
+                    const p=
+                    num(
+                        r["OPT PCR"] ??
+                        r["Opt PCR"] ??
+                        r["O_PCR"],
+                        NaN
+                    );
+
+
+                    const l=
+                    num(
+                        r["LTP"],
+                        NaN
+                    );
+
+
+                    if(!isNaN(v))
+                        volSeries.push(v);
+
+
+                    if(!isNaN(p))
+                        pcrSeries.push(p);
+
+
+                    if(!isNaN(l))
+                        ltpSeries.push(l);
+
+                });
+
+
+                if(
+                    !volSeries.length ||
+                    !pcrSeries.length ||
+                    !ltpSeries.length
+                )
+                    return;
+
+
+                const firstCount =
+                Math.min(
+                    4,
+                    volSeries.length
+                );
+
+
+                let first_vol=0;
+
+                for(
+                    let i=0;
+                    i<firstCount;
+                    i++
+                ){
+
+                    first_vol +=
+                    volSeries[i] || 0;
+
                 }
-                let obj = timeMap.get(t);
 
-                let vCpr = r['VOL CPR'] ?? r['Vol CPR'] ?? r['V_CPR'] ?? r.VOL_CPR;
-                let oPcr = r['OPT PCR'] ?? r['Opt PCR'] ?? r['O_PCR'] ?? r.OPT_PCR;
-                let ltp = r['LTP'] ?? r.ltp;
+                first_vol /=
+                firstCount;
 
-                if (vCpr !== undefined && vCpr !== null && vCpr !== "") obj['Vol CPR'] = parseFloat(vCpr);
-                if (oPcr !== undefined && oPcr !== null && oPcr !== "") obj['OPT PCR'] = parseFloat(oPcr);
-                if (ltp !== undefined && ltp !== null && ltp !== "") obj['LTP'] = parseFloat(ltp);
-            });
 
-            let df_sym = Array.from(timeMap.values());
-            df_sym.sort((a, b) => a.Time.localeCompare(b.Time));
+                const firstPcrCount =
+                Math.min(
+                    4,
+                    pcrSeries.length
+                );
 
-            // 3. ULTIMATE FIX: FORWARD FILL (Never drops to 0)
-            let lastVol = null, lastOpt = null, lastLtp = null;
-            df_sym.forEach(r => {
-                if (r['Vol CPR'] !== null && !isNaN(r['Vol CPR'])) lastVol = r['Vol CPR'];
-                else r['Vol CPR'] = lastVol; // Carry forward the previous valid value
 
-                if (r['OPT PCR'] !== null && !isNaN(r['OPT PCR'])) lastOpt = r['OPT PCR'];
-                else r['OPT PCR'] = lastOpt;
+                let first_pcr=0;
 
-                if (r['LTP'] !== null && !isNaN(r['LTP'])) lastLtp = r['LTP'];
-                else r['LTP'] = lastLtp;
-            });
+                for(
+                    let i=0;
+                    i<firstPcrCount;
+                    i++
+                ){
 
-            // 4. Remove initial empty rows before the bot sent full data
-            df_sym = df_sym.filter(r => {
-                let targetVal = currentChartMode === 'Vol CPR' ? r['Vol CPR'] : r['OPT PCR'];
-                return targetVal !== null && r['LTP'] !== null;
-            });
+                    first_pcr +=
+                    pcrSeries[i] || 0;
 
-            if (df_sym.length === 0) return;
-
-            let isNewStockOrMode = (currentActiveStock !== selectedStock || currentActiveMode !== currentChartMode || forceRebuild);
-            currentActiveStock = selectedStock;
-            currentActiveMode = currentChartMode;
-
-            cachedTimeCategories = df_sym.map(r => r.Time);
-            cachedIndicatorValues = df_sym.map(r => currentChartMode === 'Vol CPR' ? r['Vol CPR'] : r['OPT PCR']);
-            cachedLtpValues = df_sym.map(r => r.LTP);
-
-            setupHtmlSlider(cachedTimeCategories, isNewStockOrMode);
-
-            let sIdx = 0;
-            let eIdx = cachedTimeCategories.length - 1;
-            const sliderEl = document.getElementById('html-slider');
-            if (sliderEl && sliderEl.noUiSlider) {
-                let vals = sliderEl.noUiSlider.get();
-                sIdx = parseInt(vals[0]);
-                eIdx = parseInt(vals[1]);
-            }
-
-            renderApexChart(cachedTimeCategories, cachedIndicatorValues, cachedLtpValues, sIdx, eIdx, isNewStockOrMode);
-        }
-
-        function setupHtmlSlider(categories, isNewStock) {
-            const sliderEl = document.getElementById('html-slider');
-            if (categories.length === 0) return;
-            let maxRange = Math.max(1, categories.length - 1);
-
-            if (!sliderEl.noUiSlider) {
-                noUiSlider.create(sliderEl, { 
-                    start: [0, maxRange], connect: true, range: { 'min': 0, 'max': maxRange }, step: 1 
-                });
-                
-                sliderEl.noUiSlider.on('slide', function (values) {
-                    let sIdx = parseInt(values[0]), eIdx = parseInt(values[1]);
-                    document.getElementById('lbl-start').innerText = "From: " + (categories[sIdx] || "--:--");
-                    document.getElementById('lbl-end').innerText = "To: " + (categories[eIdx] || "--:--");
-                });
-                
-                sliderEl.noUiSlider.on('set', function (values) {
-                    let sIdx = parseInt(values[0]), eIdx = parseInt(values[1]);
-                    renderApexChart(cachedTimeCategories, cachedIndicatorValues, cachedLtpValues, sIdx, eIdx, false);
-                });
-            } else {
-                sliderEl.noUiSlider.updateOptions({ range: { 'min': 0, 'max': maxRange } }, false);
-                if (isNewStock) {
-                    sliderEl.noUiSlider.set([0, maxRange]);
                 }
-            }
-            
-            let vals = sliderEl.noUiSlider.get();
-            document.getElementById('lbl-start').innerText = "From: " + (categories[parseInt(vals[0])] || "--:--");
-            document.getElementById('lbl-end').innerText = "To: " + (categories[parseInt(vals[1])] || "--:--");
-        }
 
-        function renderApexChart(categories, indicatorVals, ltpVals, sIdx, eIdx, forceRebuild) {
-            if (categories.length === 0) return;
-            
-            sIdx = Math.max(0, Math.min(sIdx, categories.length - 1));
-            eIdx = Math.max(0, Math.min(eIdx, categories.length - 1));
-            if (sIdx > eIdx) return;
-            
-            let sliceCats = categories.slice(sIdx, eIdx + 1);
-            let sliceInd = indicatorVals.slice(sIdx, eIdx + 1);
-            let sliceLtp = ltpVals.slice(sIdx, eIdx + 1);
-            
-            let indColor = currentChartMode === 'Vol CPR' ? '#FF4D4D' : '#00BFFF';
-            const isDark = document.getElementById('body-tag').classList.contains('dark');
-            const container = document.getElementById('apex-chart-container');
+                first_pcr /=
+                firstPcrCount;
 
-            try {
-                if (!apexChartInstance || forceRebuild) {
-                    if (apexChartInstance) {
-                        apexChartInstance.destroy();
-                        apexChartInstance = null;
-                    }
-                    container.innerHTML = ""; 
 
-                    let options = {
-                        series: [
-                            { name: currentChartMode, type: 'area', data: sliceInd },
-                            { name: 'LTP', type: 'line', data: sliceLtp }
-                        ],
-                        chart: { height: 440, type: 'line', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: false }, background: 'transparent' },
-                        colors: [indColor, '#00CC66'],
-                        stroke: { curve: 'smooth', width: [3, 3] },
-                        fill: { type: ['gradient', 'solid'], gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05, stops: [0, 100] } },
-                        dataLabels: { enabled: false },
-                        xaxis: { categories: sliceCats, labels: { style: { colors: isDark ? '#94a3b8' : '#888' }, fontSize: '11px' }, tickAmount: 10 },
-                        yaxis: [
-                            { title: { text: currentChartMode, style: { color: indColor } }, labels: { style: { colors: indColor } }, decimalsInFloat: 2 },
-                            { opposite: true, title: { text: 'LTP', style: { color: '#00CC66' } }, labels: { style: { colors: '#00CC66' } }, decimalsInFloat: 2 }
-                        ],
-                        tooltip: { shared: true, intersect: false, theme: isDark ? 'dark' : 'light' },
-                        legend: { position: 'top', horizontalAlign: 'right', labels: { colors: isDark ? '#fff' : '#000' } },
-                        grid: { borderColor: isDark ? '#334155' : '#e2e8f0', strokeDashArray: 3 }
-                    };
-                    apexChartInstance = new ApexCharts(container, options);
-                    apexChartInstance.render();
-                } else {
-                    apexChartInstance.updateOptions({
-                        xaxis: { categories: sliceCats, labels: { style: { colors: isDark ? '#94a3b8' : '#888' }, fontSize: '11px' } },
-                        yaxis: [
-                            { title: { text: currentChartMode, style: { color: indColor } }, labels: { style: { colors: indColor } }, decimalsInFloat: 2 },
-                            { opposite: true, title: { text: 'LTP', style: { color: '#00CC66' } }, labels: { style: { colors: '#00CC66' } }, decimalsInFloat: 2 }
-                        ],
-                        colors: [indColor, '#00CC66'],
-                        grid: { borderColor: isDark ? '#334155' : '#e2e8f0', strokeDashArray: 3 },
-                        tooltip: { theme: isDark ? 'dark' : 'light' },
-                        legend: { labels: { colors: isDark ? '#fff' : '#000' } }
-                    }, false, false);
+                const firstLtpCount =
+                Math.min(
+                    4,
+                    ltpSeries.length
+                );
 
-                    apexChartInstance.updateSeries([
-                        { name: currentChartMode, data: sliceInd },
-                        { name: 'LTP', data: sliceLtp }
-                    ], false);
+
+                let first_ltp=0;
+
+                for(
+                    let i=0;
+                    i<firstLtpCount;
+                    i++
+                ){
+
+                    first_ltp +=
+                    ltpSeries[i] || 0;
+
                 }
-            } catch (err) {}
-        }
 
-        function resetChartZoom() {
-            const sliderEl = document.getElementById('html-slider');
-            if (sliderEl && sliderEl.noUiSlider && cachedTimeCategories.length > 0) {
-                sliderEl.noUiSlider.set([0, cachedTimeCategories.length - 1]);
-                renderApexChart(cachedTimeCategories, cachedIndicatorValues, cachedLtpValues, 0, cachedTimeCategories.length - 1, false);
-            }
-        }
+                first_ltp /=
+                firstLtpCount;
 
-        function runTrendScanner() {
-            if (globalChartRawData.length === 0 || globalDashboardData.length === 0) return;
-            
-            try {
-                let todayStr = getISTDateStr();
-                let day_df = globalChartRawData.filter(r => (r['Date'] || "").toString().trim() === todayStr);
 
-                let latestLookup = {};
-                globalDashboardData.forEach(item => { latestLookup[item.SYMS || item.SYMBOL] = item; });
-                
-                let bullishRows = [], bearishRows = [];
-                let symbols = [...new Set(day_df.map(r => (r['Symbol'] || r['SYMS'] || "").trim()).filter(Boolean))];
+                const last_vol =
+                volSeries[
+                    volSeries.length-1
+                ];
 
-                symbols.forEach(sym => {
-                    let sdf = day_df.filter(r => (r['Symbol'] || r['SYMS'] || "").trim() === sym);
-                    sdf.sort((a, b) => (a['Time'] || "").localeCompare(b['Time'] || ""));
-                    
-                    if (sdf.length < 5) return;
 
-                    let volSeries = sdf.map(r => parseFloat(r['VOL CPR'] ?? r['Vol CPR'] ?? r['V_CPR'])).filter(v => !isNaN(v));
-                    let pcrSeries = sdf.map(r => parseFloat(r['OPT PCR'] ?? r['Opt PCR'] ?? r['O_PCR'])).filter(v => !isNaN(v));
-                    let ltpSeries = sdf.map(r => parseFloat(r['LTP'])).filter(v => !isNaN(v));
-                    
-                    if (volSeries.length === 0 || pcrSeries.length === 0 || ltpSeries.length === 0) return;
+                const last_pcr =
+                pcrSeries[
+                    pcrSeries.length-1
+                ];
 
-                    let first_vol = (volSeries[0] + (volSeries[1]||0) + (volSeries[2]||0) + (volSeries[3]||0)) / Math.min(4, volSeries.length);
-                    let first_pcr = (pcrSeries[0] + (pcrSeries[1]||0) + (pcrSeries[2]||0) + (pcrSeries[3]||0)) / Math.min(4, pcrSeries.length);
-                    let first_ltp = (ltpSeries[0] + (ltpSeries[1]||0) + (ltpSeries[2]||0) + (ltpSeries[3]||0)) / Math.min(4, ltpSeries.length);
-                    
-                    let last_vol = volSeries[volSeries.length - 1];
-                    let last_pcr = pcrSeries[pcrSeries.length - 1];
-                    let last_ltp = ltpSeries[ltpSeries.length - 1];
-                    
-                    let max_vol = Math.max(...volSeries);
-                    let min_vol = Math.min(...volSeries);
 
-                    if (first_vol === 0 || isNaN(first_vol) || first_ltp === 0 || isNaN(first_ltp)) return;
+                const last_ltp =
+                ltpSeries[
+                    ltpSeries.length-1
+                ];
 
-                    let price_movement_pct = Math.abs((last_ltp - first_ltp) / first_ltp) * 100;
-                    let is_price_stuck = price_movement_pct <= 1.5;
 
-                    let info = latestLookup[sym] || {};
-                    let ceCon = parseFloat(info.CE_CON || 0);
-                    let peCon = parseFloat(info.PE_CON || 0);
-                    let chgPct = parseFloat(info['CHG_%'] || 0);
-                    let optPcr = parseFloat(info.O_PCR || 0);
-                    let volCpr = parseFloat(info.V_CPR || 0);
+                const max_vol =
+                Math.max(...volSeries);
 
-                    if (is_price_stuck) {
-                        let is_vol_bullish = (last_vol > first_vol) && (last_vol >= max_vol * 0.75);
-                        let is_pcr_bullish = (last_pcr >= first_pcr * 0.90);
-                        
-                        if (is_vol_bullish && is_pcr_bullish && ceCon >= 70) {
-                            bullishRows.push({ sym, chg: chgPct, pcr: optPcr, cpr: volCpr, ce: ceCon });
-                        }
 
-                        let is_vol_bearish = (last_vol < first_vol) && (min_vol > 0.1 ? last_vol <= min_vol * 1.25 : last_vol <= 0.5);
-                        let is_pcr_bearish = (last_pcr <= first_pcr * 1.10);
+                const min_vol =
+                Math.min(...volSeries);
 
-                        if (is_vol_bearish && is_pcr_bearish && peCon >= 70) {
-                            bearishRows.push({ sym, chg: chgPct, pcr: optPcr, cpr: volCpr, pe: peCon });
-                        }
-                    }
-                });
 
-                let bHtml = `<table class="w-full text-xs text-center"><tr class="bg-blue-900 text-white border-b border-blue-800"><th class="p-2.5">SYMBOL</th><th class="p-2.5">CHANGE %</th><th class="p-2.5">OPT PCR</th><th class="p-2.5">VOL CPR</th><th class="p-2.5">CE CONTRACT</th></tr>`;
-                if(bullishRows.length === 0) {
-                    bHtml += `<tr><td colspan="5" class="p-6 text-slate-400">No Bullish Stocks Matched</td></tr>`;
-                } else {
-                    bullishRows.sort((a,b) => b.ce - a.ce).forEach(r => {
-                        bHtml += `<tr class="border-b border-slate-200 dark:border-slate-800"><td class="p-2.5 font-bold">${r.sym}</td><td class="p-2.5 text-green-600 dark:text-green-400 font-bold">+${Number(r.chg).toFixed(2)}%</td><td class="p-2.5">${Number(r.pcr).toFixed(2)}</td><td class="p-2.5">${Number(r.cpr).toFixed(2)}</td><td class="p-2.5 text-green-600 dark:text-green-400 font-bold">+${Number(r.ce).toFixed(1)}%</td></tr>`;
+                if(
+                    first_vol===0 ||
+                    !isFinite(first_vol) ||
+                    first_ltp===0 ||
+                    !isFinite(first_ltp)
+                )
+                    return;
+
+
+                const priceMovementPct =
+                Math.abs(
+                    (last_ltp-first_ltp)
+                    /
+                    first_ltp
+                )*100;
+
+
+                const priceStuck =
+                priceMovementPct<=1.5;
+
+
+                if(!priceStuck)
+                    return;
+
+
+                const info =
+                latestLookup[sym] || {};
+
+
+                const ceCon =
+                num(info.CE_CON);
+
+
+                const peCon =
+                num(info.PE_CON);
+
+
+                const chgPct =
+                num(info["CHG_%"]);
+
+
+                const optPcr =
+                num(info.O_PCR);
+
+
+                const volCpr =
+                num(info.V_CPR);
+
+
+                /*
+                BULLISH
+                */
+
+                const volBullish =
+                last_vol>first_vol &&
+                last_vol>=max_vol*.75;
+
+
+                const pcrBullish =
+                last_pcr>=first_pcr*.90;
+
+
+                if(
+                    volBullish &&
+                    pcrBullish &&
+                    ceCon>=70
+                ){
+
+                    bullishRows.push({
+
+                        sym,
+                        chg:chgPct,
+                        pcr:optPcr,
+                        cpr:volCpr,
+                        ce:ceCon
+
                     });
-                }
-                bHtml += `</table>`;
-                document.getElementById('subtab-bullish').innerHTML = bHtml;
 
-                let rHtml = `<table class="w-full text-xs text-center"><tr class="bg-blue-900 text-white border-b border-blue-800"><th class="p-2.5">SYMBOL</th><th class="p-2.5">CHANGE %</th><th class="p-2.5">OPT PCR</th><th class="p-2.5">VOL CPR</th><th class="p-2.5">PE CONTRACT</th></tr>`;
-                if(bearishRows.length === 0) {
-                    rHtml += `<tr><td colspan="5" class="p-6 text-slate-400">No Bearish Stocks Matched</td></tr>`;
-                } else {
-                    bearishRows.sort((a,b) => b.pe - a.pe).forEach(r => {
-                        rHtml += `<tr class="border-b border-slate-200 dark:border-slate-800"><td class="p-2.5 font-bold">${r.sym}</td><td class="p-2.5 text-red-600 dark:text-red-400 font-bold">${Number(r.chg).toFixed(2)}%</td><td class="p-2.5">${Number(r.pcr).toFixed(2)}</td><td class="p-2.5">${Number(r.cpr).toFixed(2)}</td><td class="p-2.5 text-red-600 dark:text-red-400 font-bold">+${Number(r.pe).toFixed(1)}%</td></tr>`;
+                }
+
+
+                /*
+                BEARISH
+                */
+
+                const volBearish =
+                last_vol<first_vol &&
+                (
+                    min_vol>.1
+                    ? last_vol<=min_vol*1.25
+                    : last_vol<=.5
+                );
+
+
+                const pcrBearish =
+                last_pcr<=first_pcr*1.10;
+
+
+                if(
+                    volBearish &&
+                    pcrBearish &&
+                    peCon>=70
+                ){
+
+                    bearishRows.push({
+
+                        sym,
+                        chg:chgPct,
+                        pcr:optPcr,
+                        cpr:volCpr,
+                        pe:peCon
+
                     });
+
                 }
-                rHtml += `</table>`;
-                document.getElementById('subtab-bearish').innerHTML = rHtml;
-            } catch (err) {}
+
+            }
+        );
+
+
+        renderTrendTables(
+            bullishRows,
+            bearishRows
+        );
+
+
+    }catch(err){
+
+        console.warn(
+            "Trend scanner error:",
+            err
+        );
+
+    }finally{
+
+        trendRunning=false;
+
+    }
+
+}
+
+
+/* =========================================================
+TREND TABLES
+========================================================= */
+
+function renderTrendTables(
+    bullishRows,
+    bearishRows
+){
+
+    bullishRows.sort(
+        (a,b)=>b.ce-a.ce
+    );
+
+
+    bearishRows.sort(
+        (a,b)=>b.pe-a.pe
+    );
+
+
+    let bullHTML=
+    `<table class="trend-table w-full text-xs text-center">
+    <thead>
+    <tr>
+    <th class="p-2.5">SYMBOL</th>
+    <th class="p-2.5">CHANGE %</th>
+    <th class="p-2.5">OPT PCR</th>
+    <th class="p-2.5">VOL CPR</th>
+    <th class="p-2.5">CE CONTRACT</th>
+    </tr>
+    </thead>
+    <tbody>`;
+
+
+    if(!bullishRows.length){
+
+        bullHTML+=
+        `<tr>
+        <td colspan="5"
+        class="p-6 text-slate-400">
+        No Bullish Stocks Matched
+        </td>
+        </tr>`;
+
+    }else{
+
+        bullishRows.forEach(r=>{
+
+            bullHTML+=
+            `<tr class="border-b border-slate-200 dark:border-slate-800">
+
+            <td class="p-2.5 font-bold">
+            ${safeText(r.sym)}
+            </td>
+
+            <td class="p-2.5 text-green-600 dark:text-green-400 font-bold">
+            ${r.chg>=0?"+":""}${r.chg.toFixed(2)}%
+            </td>
+
+            <td class="p-2.5">
+            ${r.pcr.toFixed(2)}
+            </td>
+
+            <td class="p-2.5">
+            ${r.cpr.toFixed(2)}
+            </td>
+
+            <td class="p-2.5 text-green-600 dark:text-green-400 font-bold">
+            +${r.ce.toFixed(1)}%
+            </td>
+
+            </tr>`;
+
+        });
+
+    }
+
+
+    bullHTML+=
+    `</tbody></table>`;
+
+
+    document
+    .getElementById("subtab-bullish")
+    .innerHTML=
+    bullHTML;
+
+
+    let bearHTML=
+    `<table class="trend-table w-full text-xs text-center">
+    <thead>
+    <tr>
+    <th class="p-2.5">SYMBOL</th>
+    <th class="p-2.5">CHANGE %</th>
+    <th class="p-2.5">OPT PCR</th>
+    <th class="p-2.5">VOL CPR</th>
+    <th class="p-2.5">PE CONTRACT</th>
+    </tr>
+    </thead>
+    <tbody>`;
+
+
+    if(!bearishRows.length){
+
+        bearHTML+=
+        `<tr>
+        <td colspan="5"
+        class="p-6 text-slate-400">
+        No Bearish Stocks Matched
+        </td>
+        </tr>`;
+
+    }else{
+
+        bearishRows.forEach(r=>{
+
+            bearHTML+=
+            `<tr class="border-b border-slate-200 dark:border-slate-800">
+
+            <td class="p-2.5 font-bold">
+            ${safeText(r.sym)}
+            </td>
+
+            <td class="p-2.5 text-red-600 dark:text-red-400 font-bold">
+            ${r.chg.toFixed(2)}%
+            </td>
+
+            <td class="p-2.5">
+            ${r.pcr.toFixed(2)}
+            </td>
+
+            <td class="p-2.5">
+            ${r.cpr.toFixed(2)}
+            </td>
+
+            <td class="p-2.5 text-red-600 dark:text-red-400 font-bold">
+            +${r.pe.toFixed(1)}%
+            </td>
+
+            </tr>`;
+
+        });
+
+    }
+
+
+    bearHTML+=
+    `</tbody></table>`;
+
+
+    document
+    .getElementById("subtab-bearish")
+    .innerHTML=
+    bearHTML;
+
+}
+
+
+/* =========================================================
+DASHBOARD RENDER
+========================================================= */
+
+function renderDashboard(){
+
+    const showPct =
+    document
+    .getElementById("show-pct-toggle")
+    .checked;
+
+
+    const tbody =
+    document.getElementById(
+        "table-body"
+    );
+
+
+    if(!globalDashboardData.length){
+
+        tbody.innerHTML=
+        `<tr>
+        <td colspan="12"
+        class="text-center p-8 text-slate-400">
+        Waiting for Firebase data...
+        </td>
+        </tr>`;
+
+        return;
+
+    }
+
+
+    /*
+    Create lightweight hash.
+    If data hasn't really changed,
+    don't rebuild the entire table.
+    */
+
+    const hash =
+    globalDashboardData
+    .map(
+        x=>
+        `${x.SYMS}|${x.LTP}|${x.CE_CON}|${x.PE_CON}|${x.O_PCR}|${x.V_CPR}|${x.CHG_%}`
+    )
+    .join("||");
+
+
+    const pctState =
+    showPct
+    ? "P"
+    : "A";
+
+
+    const finalHash =
+    pctState+"|"+hash;
+
+
+    if(
+        finalHash===lastDashboardHash
+    )
+        return;
+
+
+    lastDashboardHash=
+    finalHash;
+
+
+    const sortedData =
+    [...globalDashboardData]
+    .sort(
+        (a,b)=>
+        (
+            Math.abs(num(b.CE_CON))+
+            Math.abs(num(b.PE_CON))
+        )
+        -
+        (
+            Math.abs(num(a.CE_CON))+
+            Math.abs(num(a.PE_CON))
+        )
+    );
+
+
+    const fragment =
+    document.createDocumentFragment();
+
+
+    sortedData.forEach(item=>{
+
+        const row =
+        document.createElement("tr");
+
+
+        const chgPct =
+        num(item["CHG_%"]);
+
+
+        const ltpCh =
+        num(item.LTP_CH);
+
+
+        const ce =
+        num(item.CE_CON);
+
+
+        const pe =
+        num(item.PE_CON);
+
+
+        const vPcr =
+        num(item.V_PCR);
+
+
+        const oPcr =
+        num(item.O_PCR);
+
+
+        const vCpr =
+        num(item.V_CPR);
+
+
+        const pcrVal =
+        showPct
+        ? num(item.PCR_PCT)
+        : num(item.PCR_ABS);
+
+
+        const volVal =
+        showPct
+        ? num(item.VOL_PCT)
+        : num(item.VOL_ABS);
+
+
+        const openStatus =
+        String(
+            item.OPEN_STATUS || ""
+        );
+
+
+        const openColor =
+        openStatus.includes("Gap Up")
+        ? "#00AA00"
+        : openStatus.includes("Gap Down")
+        ? "#FF0000"
+        : "#00BFFF";
+
+
+        const chgColor =
+        chgPct>0
+        ? "#00AA00"
+        : chgPct<0
+        ? "#FF0000"
+        : "#888888";
+
+
+        const ltpChgColor =
+        ltpCh>0
+        ? "#00AA00"
+        : ltpCh<0
+        ? "#FF0000"
+        : "#888888";
+
+
+        const ceColor =
+        ce>0
+        ? "#00AA00"
+        : ce<0
+        ? "#FF0000"
+        : "#888888";
+
+
+        const peColor =
+        pe>0
+        ? "#00AA00"
+        : pe<0
+        ? "#FF0000"
+        : "#888888";
+
+
+        const vPcrColor =
+        vPcr>=1
+        ? "#00AA00"
+        : "#FF0000";
+
+
+        const oPcrColor =
+        oPcr>=1
+        ? "#00AA00"
+        : "#FF0000";
+
+
+        const vCprColor =
+        vCpr>=1
+        ? "#00AA00"
+        : "#FF0000";
+
+
+        row.innerHTML=
+
+        `<td class="p-3 text-center font-bold">
+        ${safeText(item.SYMS)}
+        </td>
+
+        <td class="p-3 text-center font-bold"
+        style="color:${openColor}">
+        ${safeText(openStatus)}
+        </td>
+
+        <td class="p-3 text-center font-bold"
+        style="color:${vPcrColor}">
+        ${vPcr.toFixed(2)}
+        </td>
+
+        <td class="p-3 text-center font-bold"
+        style="color:${oPcrColor}">
+        ${oPcr.toFixed(2)}
+        </td>
+
+        <td class="p-3 text-center font-bold"
+        style="color:${vCprColor}">
+        ${vCpr.toFixed(2)}
+        </td>
+
+        <td class="p-3 text-center font-bold"
+        style="color:${ltpChgColor}">
+        ${ltpCh>=0?"+":""}${ltpCh.toFixed(2)}
+        </td>
+
+        <td class="p-3 text-center font-bold"
+        style="color:${chgColor}">
+        ${chgPct>=0?"+":""}${chgPct.toFixed(2)}%
+        </td>
+
+        <td class="p-3 text-center font-bold">
+        ${num(item.LTP).toFixed(2)}
+        </td>
+
+        <td class="p-3 text-center font-bold"
+        style="color:${ceColor}">
+        ${ce>=0?"+":""}${ce.toFixed(1)}%
+        </td>
+
+        <td class="p-3 text-center font-bold"
+        style="color:${peColor}">
+        ${pe>=0?"+":""}${pe.toFixed(1)}%
+        </td>
+
+        <td class="p-3 text-center font-bold"
+        style="color:${pcrVal>=0?"#00AA00":"#FF0000"}">
+        ${pcrVal.toFixed(2)}${showPct?"%":""}
+        </td>
+
+        <td class="p-3 text-center font-bold"
+        style="color:${volVal>=0?"#00AA00":"#FF0000"}">
+        ${volVal.toFixed(2)}${showPct?"%":""}
+        </td>`;
+
+
+        fragment.appendChild(row);
+
+    });
+
+
+    /*
+    One DOM operation instead of
+    appendChild for every row.
+    */
+
+    tbody.replaceChildren(fragment);
+
+}
+
+
+/* =========================================================
+SORT TABLE
+========================================================= */
+
+function sortTable(columnIndex){
+
+    const table =
+    document.getElementById(
+        "dashboard-table"
+    );
+
+
+    const tbody =
+    table.querySelector("tbody");
+
+
+    const rows =
+    Array.from(
+        tbody.querySelectorAll("tr")
+    );
+
+
+    if(rows.length<2)
+        return;
+
+
+    if(
+        sortDirections[columnIndex]===undefined
+    ){
+
+        sortDirections[columnIndex]=false;
+
+    }
+
+
+    sortDirections[columnIndex]=
+    !sortDirections[columnIndex];
+
+
+    const asc =
+    sortDirections[columnIndex];
+
+
+    rows.sort(
+        (rowA,rowB)=>{
+
+            const cellA =
+            rowA.cells[columnIndex]
+            ?.innerText
+            .replace(/[%+,]/g,"")
+            .trim() || "";
+
+
+            const cellB =
+            rowB.cells[columnIndex]
+            ?.innerText
+            .replace(/[%+,]/g,"")
+            .trim() || "";
+
+
+            const numA =
+            parseFloat(cellA);
+
+
+            const numB =
+            parseFloat(cellB);
+
+
+            if(
+                !isNaN(numA) &&
+                !isNaN(numB)
+            ){
+
+                return asc
+                ? numA-numB
+                : numB-numA;
+
+            }
+
+
+            return asc
+            ? cellA.localeCompare(cellB)
+            : cellB.localeCompare(cellA);
+
+        }
+    );
+
+
+    const fragment =
+    document.createDocumentFragment();
+
+
+    rows.forEach(row=>
+        fragment.appendChild(row)
+    );
+
+
+    tbody.replaceChildren(fragment);
+
+}
+
+
+/* =========================================================
+INITIAL LOAD
+========================================================= */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    ()=>{
+
+        /*
+        Prevent accidental horizontal
+        browser gestures from freezing
+        the page on some mobile browsers.
+        */
+
+        document.body.style.touchAction=
+        "pan-y";
+
+    }
+);
+
+
+/* =========================================================
+VISIBILITY OPTIMIZATION
+========================================================= */
+
+document.addEventListener(
+    "visibilitychange",
+    ()=>{
+
+        if(
+            document.hidden
+        ){
+
+            clearTimeout(trendTimer);
+
+        }else{
+
+            scheduleTrendScanner();
+
+            if(
+                !document
+                .getElementById("view-chart")
+                .classList
+                .contains("hidden")
+            ){
+
+                setTimeout(
+                    ()=>updateChartData(false),
+                    300
+                );
+
+            }
+
         }
 
-        function renderDashboard() {
-            const showPct = document.getElementById("show-pct-toggle").checked;
-            const tbody = document.getElementById("table-body");
-            tbody.innerHTML = "";
-            if (globalDashboardData.length === 0) return;
+    }
+);
 
-            let sortedData = [...globalDashboardData].sort((a, b) => (Math.abs(b.CE_CON) + Math.abs(b.PE_CON)) - (Math.abs(a.CE_CON) + Math.abs(a.PE_CON)));
-            sortedData.forEach(item => {
-                let row = document.createElement("tr");
-                
-                let openColor = String(item.OPEN_STATUS).includes("Gap Up") ? "#00AA00" : String(item.OPEN_STATUS).includes("Gap Down") ? "#FF0000" : "#00BFFF";
-                let chgColor = parseFloat(item['CHG_%']) > 0 ? "#00AA00" : parseFloat(item['CHG_%']) < 0 ? "#FF0000" : "#888888";
-                let ltpChgColor = parseFloat(item.LTP_CH) > 0 ? "#00AA00" : parseFloat(item.LTP_CH) < 0 ? "#FF0000" : "#888888";
-                let ceColor = parseFloat(item.CE_CON) > 0 ? "#00AA00" : parseFloat(item.CE_CON) < 0 ? "#FF0000" : "#888888";
-                let peColor = parseFloat(item.PE_CON) > 0 ? "#00AA00" : parseFloat(item.PE_CON) < 0 ? "#FF0000" : "#888888";
-                let vPcrColor = parseFloat(item.V_PCR) >= 1.0 ? "#00AA00" : "#FF0000";
-                let oPcrColor = parseFloat(item.O_PCR) >= 1.0 ? "#00AA00" : "#FF0000";
-                let vCprColor = parseFloat(item.V_CPR) >= 1.0 ? "#00AA00" : "#FF0000";
+</script>
 
-                let pcrVal = showPct ? item.PCR_PCT : item.PCR_ABS;
-                let volVal = showPct ? item.VOL_PCT : item.VOL_ABS;
-
-                row.innerHTML = `
-                    <td class="p-3 text-center font-bold">${item.SYMS}</td>
-                    <td class="p-3 text-center font-bold" style="color: ${openColor}">${item.OPEN_STATUS}</td>
-                    <td class="p-3 text-center font-bold" style="color: ${vPcrColor}">${Number(item.V_PCR).toFixed(2)}</td>
-                    <td class="p-3 text-center font-bold" style="color: ${oPcrColor}">${Number(item.O_PCR).toFixed(2)}</td>
-                    <td class="p-3 text-center font-bold" style="color: ${vCprColor}">${Number(item.V_CPR).toFixed(2)}</td>
-                    <td class="p-3 text-center font-bold" style="color: ${ltpChgColor}">${Number(item.LTP_CH)>=0?'+':''}${Number(item.LTP_CH).toFixed(2)}</td>
-                    <td class="p-3 text-center font-bold" style="color: ${chgColor}">${Number(item['CHG_%'])>=0?'+':''}${Number(item['CHG_%']).toFixed(2)}%</td>
-                    <td class="p-3 text-center font-bold">${Number(item.LTP).toFixed(2)}</td>
-                    <td class="p-3 text-center font-bold" style="color: ${ceColor}">${Number(item.CE_CON)>=0?'+':''}${Number(item.CE_CON).toFixed(1)}%</td>
-                    <td class="p-3 text-center font-bold" style="color: ${peColor}">${Number(item.PE_CON)>=0?'+':''}${Number(item.PE_CON).toFixed(1)}%</td>
-                    <td class="p-3 text-center font-bold" style="color: ${parseFloat(pcrVal)>=0?'#00AA00':'#FF0000'}">${Number(pcrVal).toFixed(2)}${showPct?'%':''}</td>
-                    <td class="p-3 text-center font-bold" style="color: ${parseFloat(volVal)>=0?'#00AA00':'#FF0000'}">${Number(volVal).toFixed(2)}${showPct?'%':''}</td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
-
-        let sortDirections = {};
-        function sortTable(columnIndex) {
-            const table = document.querySelector("table");
-            const tbody = table.querySelector("tbody");
-            const rows = Array.from(tbody.querySelectorAll("tr"));
-            
-            if (!sortDirections[columnIndex]) sortDirections[columnIndex] = false;
-            sortDirections[columnIndex] = !sortDirections[columnIndex];
-            let asc = sortDirections[columnIndex];
-
-            rows.sort((rowA, rowB) => {
-                let cellA = rowA.cells[columnIndex].innerText.replace(/[%+,]/g, "").trim();
-                let cellB = rowB.cells[columnIndex].innerText.replace(/[%+,]/g, "").trim();
-                let valA = !isNaN(cellA) ? parseFloat(cellA) : cellA;
-                let valB = !isNaN(cellB) ? parseFloat(cellB) : cellB;
-
-                if (typeof valA === 'number' && typeof valB === 'number') {
-                    return asc ? valA - valB : valB - valA;
-                } else {
-                    return asc ? String(valA).localeCompare(String(valB)) : String(valB).localeCompare(String(valA));
-                }
-            });
-
-            tbody.innerHTML = "";
-            rows.forEach(row => tbody.appendChild(row));
-        }
-    </script>
 </body>
 </html>
