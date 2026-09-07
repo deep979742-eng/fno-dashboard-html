@@ -23,6 +23,7 @@
             cursor: pointer; 
             user-select: none; 
         }
+        /* Mobile Performance Fixes */
         #apex-chart-container { touch-action: pan-y !important; min-height: 440px; }
         .noUi-target, .noUi-handle { touch-action: none !important; }
         .noUi-target { background: #cbd5e1; border: none; box-shadow: none; height: 8px; }
@@ -116,7 +117,6 @@
         firebase.initializeApp({ databaseURL: FIREBASE_URL });
         
         let globalDashboardData = [];
-        let globalChartRawData = [];
         let groupedChartData = {}; 
         
         let currentChartMode = 'Vol CPR';
@@ -128,6 +128,24 @@
         let cachedTimeCategories = [];
         let cachedIndicatorValues = [];
         let cachedLtpValues = [];
+
+        // 🟢 FIX 1: Super Catcher - Catch data no matter what spelling Firebase uses!
+        function getSafeDataValue(row, mode) {
+            let val = null;
+            if (mode === 'Vol CPR') {
+                val = row['VOL CPR'] ?? row['Vol CPR'] ?? row['V_CPR'] ?? row['v_cpr'] ?? row.VOL_CPR ?? row.V_CPR;
+            } else {
+                val = row['OPT PCR'] ?? row['OPT_PCR'] ?? row['Opt PCR'] ?? row['O_PCR'] ?? row['o_pcr'] ?? row.O_PCR ?? row.OPT_PCR;
+            }
+            let parsed = parseFloat(val);
+            return isNaN(parsed) ? null : parsed;
+        }
+
+        function getSafeLtpValue(row) {
+            let val = row['LTP'] ?? row.LTP ?? row['ltp'];
+            let parsed = parseFloat(val);
+            return isNaN(parsed) ? null : parsed;
+        }
 
         function toggleTheme() {
             const body = document.getElementById('body-tag');
@@ -156,27 +174,19 @@
             runTrendScanner(); 
         });
 
-        // 🟢 THE BULLETPROOF FIX: Fetch ALL data, ignore strict date formats!
         firebase.database().ref("ChartHistory").on("value", (snapshot) => {
             const val = snapshot.val();
             if (!val) return;
             
             let rows = [];
-            
-            // Extract every single row available, regardless of date string structure
             Object.keys(val).forEach(k => {
                 if (val[k] && Array.isArray(val[k].data)) {
                     rows = rows.concat(val[k].data);
                 } else if (val[k] && val[k].Symbol) {
-                    rows.push(val[k]); // Direct object fallback
+                    rows.push(val[k]); 
                 }
             });
             
-            // To ensure we only plot the latest day if multiple days exist:
-            // First, find the latest Date string in the rows (if Time is attached)
-            // But to be 100% safe, we will just use whatever rows we have!
-            
-            globalChartRawData = rows;
             groupedChartData = {};
             
             rows.forEach(row => {
@@ -186,8 +196,15 @@
                 groupedChartData[sym].push(row);
             });
             
+            // 🟢 FIX 2: Duplicate Killer & Strict Sorting
             Object.keys(groupedChartData).forEach(sym => {
-                groupedChartData[sym].sort((a, b) => (a.Time || "").localeCompare(b.Time || ""));
+                let uniqueMap = new Map();
+                groupedChartData[sym].forEach(r => {
+                    if (r.Time) uniqueMap.set(r.Time, r); // Keeps only 1 data point per second/minute
+                });
+                let uniqueArr = Array.from(uniqueMap.values());
+                uniqueArr.sort((a, b) => a.Time.localeCompare(b.Time)); // Strict chronological sort
+                groupedChartData[sym] = uniqueArr;
             });
 
             if (!document.getElementById('view-chart').classList.contains('hidden')) {
@@ -266,8 +283,6 @@
             if (!selectedStock) return;
 
             let filtered = groupedChartData[selectedStock] || [];
-            
-            // 🟢 Fallback to empty state gracefully if NO data found for the selected stock
             if (filtered.length === 0) {
                 if (apexChartInstance) { apexChartInstance.destroy(); apexChartInstance = null; }
                 document.getElementById('apex-chart-container').innerHTML = `<p class="text-center text-slate-400 font-bold mt-10">Data not yet available for ${selectedStock}. Waiting for bot...</p>`;
@@ -279,13 +294,8 @@
             currentActiveMode = currentChartMode;
 
             cachedTimeCategories = filtered.map(i => i.Time || "--:--");
-            
-            cachedIndicatorValues = filtered.map(i => {
-                let val = i[currentChartMode];
-                if (val === undefined) val = i[currentChartMode === 'Vol CPR' ? 'VOL CPR' : 'OPT PCR'];
-                return (val !== undefined && val !== null && val !== "") ? parseFloat(val) : null;
-            });
-            cachedLtpValues = filtered.map(i => (i.LTP !== undefined && i.LTP !== null && i.LTP !== "") ? parseFloat(i.LTP) : null);
+            cachedIndicatorValues = filtered.map(i => getSafeDataValue(i, currentChartMode));
+            cachedLtpValues = filtered.map(i => getSafeLtpValue(i));
 
             setupHtmlSlider(cachedTimeCategories, isNewStockOrMode);
 
@@ -304,15 +314,11 @@
         function setupHtmlSlider(categories, isNewStock) {
             const sliderEl = document.getElementById('html-slider');
             if (categories.length === 0) return;
-            
             let maxRange = Math.max(1, categories.length - 1);
 
             if (!sliderEl.noUiSlider) {
                 noUiSlider.create(sliderEl, { 
-                    start: [0, maxRange], 
-                    connect: true, 
-                    range: { 'min': 0, 'max': maxRange }, 
-                    step: 1 
+                    start: [0, maxRange], connect: true, range: { 'min': 0, 'max': maxRange }, step: 1 
                 });
                 
                 sliderEl.noUiSlider.on('slide', function (values) {
@@ -337,6 +343,7 @@
             document.getElementById('lbl-end').innerText = "To: " + (categories[parseInt(vals[1])] || "--:--");
         }
 
+        // 🟢 FIX 3: Clean Canvas - Guaranteed NO double charts!
         function renderApexChart(categories, indicatorVals, ltpVals, sIdx, eIdx, forceRebuild) {
             if (categories.length === 0) return;
             
@@ -350,15 +357,16 @@
             
             let indColor = currentChartMode === 'Vol CPR' ? '#ef4444' : '#0ea5e9';
             const isDark = document.getElementById('body-tag').classList.contains('dark');
+            const container = document.getElementById('apex-chart-container');
 
             try {
-                if (apexChartInstance && forceRebuild) {
-                    apexChartInstance.destroy();
-                    apexChartInstance = null;
-                    document.getElementById('apex-chart-container').innerHTML = ""; 
-                }
+                if (!apexChartInstance || forceRebuild) {
+                    if (apexChartInstance) {
+                        apexChartInstance.destroy();
+                        apexChartInstance = null;
+                    }
+                    container.innerHTML = ""; // FULLY CLEAR OLD CHART
 
-                if (!apexChartInstance) {
                     let options = {
                         series: [
                             { name: currentChartMode, type: 'line', data: sliceInd },
@@ -378,7 +386,7 @@
                         legend: { position: 'top', horizontalAlign: 'right', labels: { colors: isDark ? '#fff' : '#000' } },
                         grid: { borderColor: isDark ? '#334155' : '#e2e8f0', strokeDashArray: 3 }
                     };
-                    apexChartInstance = new ApexCharts(document.querySelector("#apex-chart-container"), options);
+                    apexChartInstance = new ApexCharts(container, options);
                     apexChartInstance.render();
                 } else {
                     apexChartInstance.updateOptions({
@@ -428,7 +436,9 @@
                     let sdf = groupedChartData[sym];
                     if (!sdf || sdf.length < 5) return;
 
-                    let volSeries = sdf.map(i => parseFloat(i['VOL CPR'] || i['Vol CPR'] || 0));
+                    let volSeries = sdf.map(i => getSafeDataValue(i, 'Vol CPR')).filter(v => v !== null);
+                    if(volSeries.length < 5) return;
+
                     let lastVol = volSeries[volSeries.length - 1];
                     let firstVol = (volSeries[0] + volSeries[1] + volSeries[2] + volSeries[3]) / 4;
                     let maxVol = Math.max(...volSeries);
