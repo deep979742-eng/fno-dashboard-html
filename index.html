@@ -26,7 +26,6 @@
             cursor: pointer; 
             user-select: none; 
         }
-        /* Mobile Performance Fixes */
         #apex-chart-container { touch-action: pan-y !important; min-height: 440px; }
         .noUi-target, .noUi-handle { touch-action: none !important; }
         .noUi-target { background: #cbd5e1; border: none; box-shadow: none; height: 8px; }
@@ -136,7 +135,6 @@
         let cachedIndicatorValues = [];
         let cachedLtpValues = [];
 
-        // 1. Get exact Indian Standard Time (IST) Date string (Matches Python %Y-%m-%d)
         function getISTDateStr() {
             let d = new Date();
             let utc = d.getTime() + (d.getTimezoneOffset() * 60000);
@@ -174,12 +172,11 @@
             runTrendScanner(); 
         });
 
-        // 2. Fetch Data exactly like Python script
         firebase.database().ref("ChartHistory").on("value", (snapshot) => {
             const val = snapshot.val();
             if (!val) return;
             
-            let todayPrefix = getISTDateStr().replace(/-/g, ""); // e.g., "20240907"
+            let todayPrefix = getISTDateStr().replace(/-/g, ""); 
             let rows = [];
             
             Object.keys(val).forEach(k => {
@@ -273,11 +270,12 @@
 
             let todayStr = getISTDateStr();
 
-            // 3. Filter exactly like Python: day_df[day_df['Symbol'] == sel_stock]
+            // 1. Filter out bad times (like 00:00) and only pick today's data
             let df_sym_raw = globalChartRawData.filter(r => {
                 let d = (r['Date'] || "").toString().trim();
                 let s = (r['Symbol'] || r['SYMS'] || "").toString().trim();
-                return d === todayStr && s === selectedStock;
+                let t = (r['Time'] || "").toString().trim();
+                return d === todayStr && s === selectedStock && t >= "09:00" && t !== "--:--";
             });
 
             if (df_sym_raw.length === 0) {
@@ -286,42 +284,55 @@
                 return;
             }
 
-            // 4. SMART MERGE: Combines split LTP and VOL CPR data into single timestamps safely!
-            let mergedMap = new Map();
+            // 2. Safely extract and merge values
+            let timeMap = new Map();
             df_sym_raw.forEach(r => {
-                let t = r['Time'] || "--:--";
-                if (!mergedMap.has(t)) {
-                    mergedMap.set(t, { ...r });
-                } else {
-                    let existing = mergedMap.get(t);
-                    Object.keys(r).forEach(k => {
-                        if (r[k] !== null && r[k] !== undefined && r[k] !== "") {
-                            existing[k] = r[k];
-                        }
-                    });
+                let t = r['Time'].trim();
+                if (!timeMap.has(t)) {
+                    timeMap.set(t, { Time: t, 'Vol CPR': null, 'OPT PCR': null, 'LTP': null });
                 }
+                let obj = timeMap.get(t);
+
+                let vCpr = r['VOL CPR'] ?? r['Vol CPR'] ?? r['V_CPR'] ?? r.VOL_CPR;
+                let oPcr = r['OPT PCR'] ?? r['Opt PCR'] ?? r['O_PCR'] ?? r.OPT_PCR;
+                let ltp = r['LTP'] ?? r.ltp;
+
+                if (vCpr !== undefined && vCpr !== null && vCpr !== "") obj['Vol CPR'] = parseFloat(vCpr);
+                if (oPcr !== undefined && oPcr !== null && oPcr !== "") obj['OPT PCR'] = parseFloat(oPcr);
+                if (ltp !== undefined && ltp !== null && ltp !== "") obj['LTP'] = parseFloat(ltp);
             });
 
-            let df_sym = Array.from(mergedMap.values());
-            df_sym.sort((a, b) => (a['Time'] || "").localeCompare(b['Time'] || ""));
+            let df_sym = Array.from(timeMap.values());
+            df_sym.sort((a, b) => a.Time.localeCompare(b.Time));
+
+            // 3. ULTIMATE FIX: FORWARD FILL (Never drops to 0)
+            let lastVol = null, lastOpt = null, lastLtp = null;
+            df_sym.forEach(r => {
+                if (r['Vol CPR'] !== null && !isNaN(r['Vol CPR'])) lastVol = r['Vol CPR'];
+                else r['Vol CPR'] = lastVol; // Carry forward the previous valid value
+
+                if (r['OPT PCR'] !== null && !isNaN(r['OPT PCR'])) lastOpt = r['OPT PCR'];
+                else r['OPT PCR'] = lastOpt;
+
+                if (r['LTP'] !== null && !isNaN(r['LTP'])) lastLtp = r['LTP'];
+                else r['LTP'] = lastLtp;
+            });
+
+            // 4. Remove initial empty rows before the bot sent full data
+            df_sym = df_sym.filter(r => {
+                let targetVal = currentChartMode === 'Vol CPR' ? r['Vol CPR'] : r['OPT PCR'];
+                return targetVal !== null && r['LTP'] !== null;
+            });
+
+            if (df_sym.length === 0) return;
 
             let isNewStockOrMode = (currentActiveStock !== selectedStock || currentActiveMode !== currentChartMode || forceRebuild);
             currentActiveStock = selectedStock;
             currentActiveMode = currentChartMode;
 
-            let targetCol = currentChartMode === 'Vol CPR' ? 'VOL CPR' : 'OPT PCR';
-
-            cachedTimeCategories = df_sym.map(r => r['Time'] || "--:--");
-            
-            // 5. Fillna(0) Logic to mimic Streamlit Python exact behaviour
-            cachedIndicatorValues = df_sym.map(r => {
-                let val = parseFloat(r[targetCol]);
-                return isNaN(val) ? 0 : val;
-            });
-            cachedLtpValues = df_sym.map(r => {
-                let val = parseFloat(r['LTP']);
-                return isNaN(val) ? 0 : val;
-            });
+            cachedTimeCategories = df_sym.map(r => r.Time);
+            cachedIndicatorValues = df_sym.map(r => currentChartMode === 'Vol CPR' ? r['Vol CPR'] : r['OPT PCR']);
+            cachedLtpValues = df_sym.map(r => r.LTP);
 
             setupHtmlSlider(cachedTimeCategories, isNewStockOrMode);
 
@@ -380,7 +391,6 @@
             let sliceInd = indicatorVals.slice(sIdx, eIdx + 1);
             let sliceLtp = ltpVals.slice(sIdx, eIdx + 1);
             
-            // Exact colors from Streamlit Code
             let indColor = currentChartMode === 'Vol CPR' ? '#FF4D4D' : '#00BFFF';
             const isDark = document.getElementById('body-tag').classList.contains('dark');
             const container = document.getElementById('apex-chart-container');
@@ -393,7 +403,6 @@
                     }
                     container.innerHTML = ""; 
 
-                    // Exact Streamlit ApexCharts settings (area + smooth)
                     let options = {
                         series: [
                             { name: currentChartMode, type: 'area', data: sliceInd },
@@ -433,9 +442,7 @@
                         { name: 'LTP', data: sliceLtp }
                     ], false);
                 }
-            } catch (err) {
-                console.error("ApexCharts error: ", err);
-            }
+            } catch (err) {}
         }
 
         function resetChartZoom() {
@@ -451,9 +458,7 @@
             
             try {
                 let todayStr = getISTDateStr();
-                let day_df = globalChartRawData.filter(r => {
-                    return (r['Date'] || "").toString().trim() === todayStr;
-                });
+                let day_df = globalChartRawData.filter(r => (r['Date'] || "").toString().trim() === todayStr);
 
                 let latestLookup = {};
                 globalDashboardData.forEach(item => { latestLookup[item.SYMS || item.SYMBOL] = item; });
@@ -467,8 +472,8 @@
                     
                     if (sdf.length < 5) return;
 
-                    let volSeries = sdf.map(r => parseFloat(r['VOL CPR'])).filter(v => !isNaN(v));
-                    let pcrSeries = sdf.map(r => parseFloat(r['OPT PCR'])).filter(v => !isNaN(v));
+                    let volSeries = sdf.map(r => parseFloat(r['VOL CPR'] ?? r['Vol CPR'] ?? r['V_CPR'])).filter(v => !isNaN(v));
+                    let pcrSeries = sdf.map(r => parseFloat(r['OPT PCR'] ?? r['Opt PCR'] ?? r['O_PCR'])).filter(v => !isNaN(v));
                     let ltpSeries = sdf.map(r => parseFloat(r['LTP'])).filter(v => !isNaN(v));
                     
                     if (volSeries.length === 0 || pcrSeries.length === 0 || ltpSeries.length === 0) return;
@@ -534,9 +539,7 @@
                 }
                 rHtml += `</table>`;
                 document.getElementById('subtab-bearish').innerHTML = rHtml;
-            } catch (err) {
-                console.error("Trend Scanner Error:", err);
-            }
+            } catch (err) {}
         }
 
         function renderDashboard() {
@@ -549,7 +552,6 @@
             sortedData.forEach(item => {
                 let row = document.createElement("tr");
                 
-                // Colors matched exactly with Streamlit logic
                 let openColor = String(item.OPEN_STATUS).includes("Gap Up") ? "#00AA00" : String(item.OPEN_STATUS).includes("Gap Down") ? "#FF0000" : "#00BFFF";
                 let chgColor = parseFloat(item['CHG_%']) > 0 ? "#00AA00" : parseFloat(item['CHG_%']) < 0 ? "#FF0000" : "#888888";
                 let ltpChgColor = parseFloat(item.LTP_CH) > 0 ? "#00AA00" : parseFloat(item.LTP_CH) < 0 ? "#FF0000" : "#888888";
