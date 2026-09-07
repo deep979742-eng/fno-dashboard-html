@@ -26,7 +26,8 @@
             cursor: pointer; 
             user-select: none; 
         }
-        /* MOBILE HANG FIX: touch-action ensures mobile browser doesn't conflict with slider dragging */
+        /* Mobile Performance & Touch Fixes */
+        #apex-chart-container { touch-action: pan-y !important; }
         .noUi-target, .noUi-handle { touch-action: none !important; }
         .noUi-target { background: #cbd5e1; border: none; box-shadow: none; height: 8px; }
         .noUi-connect { background: #0ea5e9; }
@@ -126,7 +127,6 @@
         let globalChartRawData = [];
         let currentChartMode = 'Vol CPR';
         
-        // Tracking logic so we don't rebuild on every tick
         let apexChartInstance = null;
         let currentActiveStock = "";
         let currentActiveMode = "";
@@ -148,7 +148,7 @@
                 btn.className = "px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-950 text-xs font-bold text-yellow-400 transition shadow-sm";
             }
             if (!document.getElementById('view-chart').classList.contains('hidden')) {
-                updateChartData(true); // Force rebuild for theme change colors
+                updateChartData(true); 
             }
         }
 
@@ -174,7 +174,7 @@
             });
             globalChartRawData = rows;
             if (!document.getElementById('view-chart').classList.contains('hidden')) {
-                updateChartData(false); // Do not force rebuild, just update numbers
+                updateChartData(false);
             }
             runTrendScanner();
         });
@@ -245,7 +245,6 @@
             const selectedStock = document.getElementById("stock-select").value;
             if (!selectedStock || globalChartRawData.length === 0) return;
 
-            // SMART RENDERING: Check if stock or mode changed to avoid unnecessary rebuilds
             let isNewStockOrMode = (currentActiveStock !== selectedStock || currentActiveMode !== currentChartMode) || forceRebuild;
             currentActiveStock = selectedStock;
             currentActiveMode = currentChartMode;
@@ -254,12 +253,17 @@
             filtered.sort((a, b) => a.Time.localeCompare(b.Time));
 
             cachedTimeCategories = filtered.map(i => i.Time);
-            cachedIndicatorValues = filtered.map(i => parseFloat(i[currentChartMode] || i[currentChartMode === 'Vol CPR' ? 'VOL CPR' : 'OPT PCR'] || 0));
-            cachedLtpValues = filtered.map(i => parseFloat(i.LTP || 0));
+            
+            // Fix 2: Null Handling for straight line rendering
+            cachedIndicatorValues = filtered.map(i => {
+                let val = i[currentChartMode];
+                if (val === undefined) val = i[currentChartMode === 'Vol CPR' ? 'VOL CPR' : 'OPT PCR'];
+                return (val !== undefined && val !== null && val !== "") ? parseFloat(val) : null;
+            });
+            cachedLtpValues = filtered.map(i => (i.LTP !== undefined && i.LTP !== null && i.LTP !== "") ? parseFloat(i.LTP) : null);
 
             setupHtmlSlider(cachedTimeCategories, isNewStockOrMode);
 
-            // Fetch current slider positions
             let sIdx = 0;
             let eIdx = cachedTimeCategories.length - 1;
             const sliderEl = document.getElementById('html-slider');
@@ -276,7 +280,6 @@
             const sliderEl = document.getElementById('html-slider');
             if (categories.length === 0) return;
 
-            // Delete ONLY if it's a completely new stock/mode, not on every Firebase tick!
             if (isNewStockOrMode && sliderEl.noUiSlider) {
                 sliderEl.noUiSlider.destroy();
             }
@@ -289,21 +292,24 @@
                     step: 1 
                 });
                 
-                // Use 'slide' event instead of 'update' for smoother dragging without conflicting loops
+                // Fix 1: Update text ONLY while sliding (NO HANG)
                 sliderEl.noUiSlider.on('slide', function (values) {
                     let sIdx = parseInt(values[0]), eIdx = parseInt(values[1]);
                     document.getElementById('lbl-start').innerText = "From: " + categories[sIdx];
                     document.getElementById('lbl-end').innerText = "To: " + categories[eIdx];
+                });
+                
+                // Fix 1: Update Chart ONLY when finger is released
+                sliderEl.noUiSlider.on('set', function (values) {
+                    let sIdx = parseInt(values[0]), eIdx = parseInt(values[1]);
                     renderApexChart(cachedTimeCategories, cachedIndicatorValues, cachedLtpValues, sIdx, eIdx, false);
                 });
             } else {
-                // Silently update max range without destroying the slider (Fixes mobile hang)
                 sliderEl.noUiSlider.updateOptions({
                     range: { 'min': 0, 'max': Math.max(1, categories.length - 1) }
                 }, false);
             }
             
-            // Set initial labels
             let vals = sliderEl.noUiSlider.get();
             document.getElementById('lbl-start').innerText = "From: " + categories[parseInt(vals[0])];
             document.getElementById('lbl-end').innerText = "To: " + categories[parseInt(vals[1])];
@@ -318,7 +324,6 @@
             let indColor = currentChartMode === 'Vol CPR' ? '#ef4444' : '#0ea5e9';
             const isDark = document.getElementById('body-tag').classList.contains('dark');
 
-            // SMART RENDERING: If chart exists and it's the same stock, just update the series silently!
             if (apexChartInstance && !isNewStockOrMode) {
                 apexChartInstance.updateOptions({ xaxis: { categories: sliceCats } }, false, false);
                 apexChartInstance.updateSeries([
@@ -328,17 +333,17 @@
                 return;
             }
 
-            // Otherwise build from scratch
             if (apexChartInstance) apexChartInstance.destroy();
 
             let options = {
                 series: [
-                    { name: currentChartMode, type: 'area', data: sliceInd },
+                    { name: currentChartMode, type: 'line', data: sliceInd },
                     { name: 'LTP', type: 'line', data: sliceLtp }
                 ],
                 chart: { height: 440, type: 'line', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: false }, background: 'transparent' },
                 colors: [indColor, '#22c55e'],
-                stroke: { curve: 'smooth', width: [3, 3] },
+                // Fix 2: Changed to 'straight' lines to prevent disappearing dots on mobile
+                stroke: { curve: 'straight', width: [2, 2] },
                 fill: { type: ['gradient', 'solid'], gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05, stops: [0, 100] } },
                 dataLabels: { enabled: false },
                 xaxis: { categories: sliceCats, labels: { style: { colors: isDark ? '#94a3b8' : '#475569', fontSize: '11px' } }, tickAmount: 10 },
