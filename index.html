@@ -4,16 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>F&O Pro Trading Dashboard</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = { darkMode: 'class' }
     </script>
-    <!-- ApexCharts & noUiSlider -->
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.js"></script>
-    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
@@ -27,7 +24,7 @@
             user-select: none; 
         }
         /* Mobile Performance & Touch Fixes */
-        #apex-chart-container { touch-action: pan-y !important; }
+        #apex-chart-container { touch-action: pan-y !important; min-height: 440px; }
         .noUi-target, .noUi-handle { touch-action: none !important; }
         .noUi-target { background: #cbd5e1; border: none; box-shadow: none; height: 8px; }
         .noUi-connect { background: #0ea5e9; }
@@ -37,7 +34,6 @@
 </head>
 <body class="p-2 sm:p-4 bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200" id="body-tag">
 
-    <!-- TOP CONTROL BAR -->
     <div class="w-full flex flex-wrap justify-between items-center mb-4 bg-white dark:bg-slate-900 p-2 sm:p-3 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 gap-2">
         <div class="flex space-x-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-lg border border-slate-200 dark:border-slate-800">
             <button onclick="switchTab('dash')" id="btn-dash" class="px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold bg-blue-600 text-white transition">📊 Dash</button>
@@ -59,7 +55,6 @@
         </div>
     </div>
 
-    <!-- VIEW 1: DASHBOARD TABLE -->
     <div id="view-dash" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden">
         <div class="overflow-x-auto max-h-[80vh]">
             <table class="w-full text-left border-collapse text-xs sm:text-sm">
@@ -86,7 +81,6 @@
         </div>
     </div>
 
-    <!-- VIEW 2: PROFESSIONAL CHART -->
     <div id="view-chart" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 sm:p-6 hidden shadow-2xl">
         <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
             <select id="stock-select" onchange="updateChartData(true)" class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white font-bold text-sm rounded-lg px-3 py-2 w-full sm:w-64 focus:outline-none focus:border-blue-500">
@@ -108,15 +102,14 @@
         </div>
     </div>
 
-    <!-- VIEW 3: TREND SCANNER -->
     <div id="view-trend" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hidden shadow-2xl">
         <h2 class="text-lg font-bold text-cyan-600 dark:text-cyan-400 mb-4">🚀 Divergence Trend Scanner</h2>
         <div class="flex space-x-2 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2">
             <button onclick="switchTrendSubTab('bullish')" id="btn-sub-bull" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-green-600 text-white transition">🟢 Bullish Stocks</button>
             <button onclick="switchTrendSubTab('bearish')" id="btn-sub-bear" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400 transition">🔴 Bearish Stocks</button>
         </div>
-        <div id="subtab-bullish" class="overflow-x-auto max-h-[600px]"><p class="text-slate-400 text-xs text-center p-4">Scanning...</p></div>
-        <div id="subtab-bearish" class="overflow-x-auto max-h-[600px] hidden"><p class="text-slate-400 text-xs text-center p-4">Scanning...</p></div>
+        <div id="subtab-bullish" class="overflow-x-auto max-h-[600px]"><p class="text-slate-400 text-xs text-center p-4">Waiting for data...</p></div>
+        <div id="subtab-bearish" class="overflow-x-auto max-h-[600px] hidden"><p class="text-slate-400 text-xs text-center p-4">Waiting for data...</p></div>
     </div>
 
     <script>
@@ -125,11 +118,14 @@
         
         let globalDashboardData = [];
         let globalChartRawData = [];
-        let groupedChartData = {}; // SMART CACHING (PREVENTS HANG)
+        let groupedChartData = {}; 
         
         let currentChartMode = 'Vol CPR';
         let apexChartInstance = null;
         let sliderInstance = null;
+        let currentActiveStock = "";
+        let currentActiveMode = "";
+        
         let cachedTimeCategories = [];
         let cachedIndicatorValues = [];
         let cachedLtpValues = [];
@@ -147,7 +143,7 @@
                 btn.className = "px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-950 text-xs font-bold text-yellow-400 transition shadow-sm";
             }
             if (!document.getElementById('view-chart').classList.contains('hidden')) {
-                updateChartData(false); 
+                updateChartData(true); 
             }
         }
 
@@ -156,33 +152,39 @@
             if (!val) return;
             document.getElementById("live-time").innerText = new Date(val.time * 1000).toLocaleTimeString();
             globalDashboardData = val.data || [];
-            
             renderDashboard();
             populateStockDropdown();
-            runTrendScanner(); // Runs super fast now
+            runTrendScanner(); 
         });
 
+        // 🟢 FIX 1: Always Fetch the LATEST Available Day Data (Never Empty)
         firebase.database().ref("ChartHistory").on("value", (snapshot) => {
             const val = snapshot.val();
             if (!val) return;
+            
+            let allKeys = Object.keys(val).sort().reverse();
+            if(allKeys.length === 0) return;
+            
+            let latestDatePrefix = allKeys[0].substring(0, 8); // Finds the most recent date
+            
             let rows = [];
-            const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-            Object.keys(val).forEach(key => {
-                if (key.startsWith(todayStr) && val[key].data) {
-                    rows = rows.concat(val[key].data);
+            allKeys.forEach(k => {
+                if (k.startsWith(latestDatePrefix) && val[k].data) {
+                    rows = rows.concat(val[k].data);
                 }
             });
-            globalChartRawData = rows;
             
-            // SMART CACHE: Group data once so mobile processor doesn't choke!
+            globalChartRawData = rows;
             groupedChartData = {};
-            globalChartRawData.forEach(row => {
-                if (!groupedChartData[row.Symbol]) groupedChartData[row.Symbol] = [];
-                groupedChartData[row.Symbol].push(row);
+            
+            rows.forEach(row => {
+                let sym = row.Symbol || row.sym || row.SYMBOL;
+                if (!sym) return;
+                if (!groupedChartData[sym]) groupedChartData[sym] = [];
+                groupedChartData[sym].push(row);
             });
             
             Object.keys(groupedChartData).forEach(sym => {
-                // Safely sort to prevent localeCompare crash
                 groupedChartData[sym].sort((a, b) => (a.Time || "").localeCompare(b.Time || ""));
             });
 
@@ -201,7 +203,8 @@
             document.getElementById(`btn-${tab}`).className = "px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold bg-blue-600 text-white transition";
             
             if (tab === 'chart') {
-                setTimeout(() => { updateChartData(false); }, 50);
+                // Increased timeout slightly to ensure mobile UI draws completely before chart renders
+                setTimeout(() => { updateChartData(true); }, 150);
             }
         }
 
@@ -226,7 +229,6 @@
             if(symbols.length === 0 && globalDashboardData.length > 0){
                 symbols = globalDashboardData.map(i => i.SYMS || i.SYMBOL).filter(Boolean);
             }
-            
             if (symbols.length === 0) return;
             
             select.innerHTML = "";
@@ -253,17 +255,25 @@
                 document.getElementById('mode-opt').className = "px-3 py-1.5 rounded-md text-xs font-bold bg-blue-600 text-white transition";
                 document.getElementById('mode-vol').className = "px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition";
             }
-            updateChartData(false); 
+            updateChartData(true); // Force rebuild to prevent color glitches
         }
 
-        function updateChartData(isNewStock) {
-            if (document.getElementById('view-chart').classList.contains('hidden')) return; // Safety check
+        // 🟢 FIX 2: Crash Protection in Chart Update
+        function updateChartData(forceRebuild = false) {
+            if (document.getElementById('view-chart').classList.contains('hidden')) return;
             
             const selectedStock = document.getElementById("stock-select").value;
             if (!selectedStock) return;
 
             let filtered = groupedChartData[selectedStock] || [];
-            if (filtered.length === 0) return;
+            if (filtered.length === 0) {
+                document.getElementById('apex-chart-container').innerHTML = `<p class="text-center text-slate-400 mt-10">Waiting for chart data...</p>`;
+                return;
+            }
+
+            let isNewStockOrMode = (currentActiveStock !== selectedStock || currentActiveMode !== currentChartMode || forceRebuild);
+            currentActiveStock = selectedStock;
+            currentActiveMode = currentChartMode;
 
             cachedTimeCategories = filtered.map(i => i.Time || "--:--");
             
@@ -274,7 +284,7 @@
             });
             cachedLtpValues = filtered.map(i => (i.LTP !== undefined && i.LTP !== null && i.LTP !== "") ? parseFloat(i.LTP) : null);
 
-            setupHtmlSlider(cachedTimeCategories, isNewStock);
+            setupHtmlSlider(cachedTimeCategories, isNewStockOrMode);
 
             let sIdx = 0;
             let eIdx = cachedTimeCategories.length - 1;
@@ -285,7 +295,7 @@
                 eIdx = parseInt(vals[1]);
             }
 
-            renderApexChart(cachedTimeCategories, cachedIndicatorValues, cachedLtpValues, sIdx, eIdx);
+            renderApexChart(cachedTimeCategories, cachedIndicatorValues, cachedLtpValues, sIdx, eIdx, isNewStockOrMode);
         }
 
         function setupHtmlSlider(categories, isNewStock) {
@@ -310,14 +320,10 @@
                 
                 sliderEl.noUiSlider.on('set', function (values) {
                     let sIdx = parseInt(values[0]), eIdx = parseInt(values[1]);
-                    renderApexChart(cachedTimeCategories, cachedIndicatorValues, cachedLtpValues, sIdx, eIdx);
+                    renderApexChart(cachedTimeCategories, cachedIndicatorValues, cachedLtpValues, sIdx, eIdx, false);
                 });
             } else {
-                // Safely update range without destroying
-                sliderEl.noUiSlider.updateOptions({
-                    range: { 'min': 0, 'max': maxRange }
-                }, false);
-                
+                sliderEl.noUiSlider.updateOptions({ range: { 'min': 0, 'max': maxRange } }, false);
                 if (isNewStock) {
                     sliderEl.noUiSlider.set([0, maxRange]);
                 }
@@ -328,7 +334,7 @@
             document.getElementById('lbl-end').innerText = "To: " + (categories[parseInt(vals[1])] || "--:--");
         }
 
-        function renderApexChart(categories, indicatorVals, ltpVals, sIdx, eIdx) {
+        function renderApexChart(categories, indicatorVals, ltpVals, sIdx, eIdx, forceRebuild) {
             if (categories.length === 0) return;
             
             sIdx = Math.max(0, Math.min(sIdx, categories.length - 1));
@@ -342,46 +348,55 @@
             let indColor = currentChartMode === 'Vol CPR' ? '#ef4444' : '#0ea5e9';
             const isDark = document.getElementById('body-tag').classList.contains('dark');
 
-            if (apexChartInstance) {
-                // SUPER FAST UPDATE WITHOUT DESTROYING
-                apexChartInstance.updateOptions({
-                    xaxis: { categories: sliceCats, labels: { style: { colors: isDark ? '#94a3b8' : '#475569', fontSize: '11px' } } },
-                    yaxis: [
-                        { title: { text: currentChartMode, style: { color: indColor } }, labels: { style: { colors: indColor } }, decimalsInFloat: 2 },
-                        { opposite: true, title: { text: 'LTP', style: { color: '#22c55e' } }, labels: { style: { colors: '#22c55e' } }, decimalsInFloat: 2 }
-                    ],
-                    colors: [indColor, '#22c55e'],
-                    grid: { borderColor: isDark ? '#334155' : '#e2e8f0', strokeDashArray: 3 },
-                    tooltip: { theme: isDark ? 'dark' : 'light' },
-                    legend: { labels: { colors: isDark ? '#fff' : '#000' } }
-                }, false, false);
+            try {
+                if (apexChartInstance && forceRebuild) {
+                    apexChartInstance.destroy();
+                    apexChartInstance = null;
+                    document.getElementById('apex-chart-container').innerHTML = ""; // Clear canvas completely
+                }
 
-                apexChartInstance.updateSeries([
-                    { name: currentChartMode, data: sliceInd },
-                    { name: 'LTP', data: sliceLtp }
-                ], false);
-            } else {
-                let options = {
-                    series: [
-                        { name: currentChartMode, type: 'line', data: sliceInd },
-                        { name: 'LTP', type: 'line', data: sliceLtp }
-                    ],
-                    chart: { height: 440, type: 'line', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: false }, background: 'transparent' },
-                    colors: [indColor, '#22c55e'],
-                    stroke: { curve: 'straight', width: [2, 2] },
-                    fill: { type: ['gradient', 'solid'], gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05, stops: [0, 100] } },
-                    dataLabels: { enabled: false },
-                    xaxis: { categories: sliceCats, labels: { style: { colors: isDark ? '#94a3b8' : '#475569', fontSize: '11px' } }, tickAmount: 10 },
-                    yaxis: [
-                        { title: { text: currentChartMode, style: { color: indColor } }, labels: { style: { colors: indColor } }, decimalsInFloat: 2 },
-                        { opposite: true, title: { text: 'LTP', style: { color: '#22c55e' } }, labels: { style: { colors: '#22c55e' } }, decimalsInFloat: 2 }
-                    ],
-                    tooltip: { shared: true, intersect: false, theme: isDark ? 'dark' : 'light' },
-                    legend: { position: 'top', horizontalAlign: 'right', labels: { colors: isDark ? '#fff' : '#000' } },
-                    grid: { borderColor: isDark ? '#334155' : '#e2e8f0', strokeDashArray: 3 }
-                };
-                apexChartInstance = new ApexCharts(document.querySelector("#apex-chart-container"), options);
-                apexChartInstance.render();
+                if (!apexChartInstance) {
+                    let options = {
+                        series: [
+                            { name: currentChartMode, type: 'line', data: sliceInd },
+                            { name: 'LTP', type: 'line', data: sliceLtp }
+                        ],
+                        chart: { height: 440, type: 'line', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: false }, background: 'transparent' },
+                        colors: [indColor, '#22c55e'],
+                        stroke: { curve: 'straight', width: [2, 2] },
+                        fill: { type: ['gradient', 'solid'], gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05, stops: [0, 100] } },
+                        dataLabels: { enabled: false },
+                        xaxis: { categories: sliceCats, labels: { style: { colors: isDark ? '#94a3b8' : '#475569', fontSize: '11px' } }, tickAmount: 10 },
+                        yaxis: [
+                            { title: { text: currentChartMode, style: { color: indColor } }, labels: { style: { colors: indColor } }, decimalsInFloat: 2 },
+                            { opposite: true, title: { text: 'LTP', style: { color: '#22c55e' } }, labels: { style: { colors: '#22c55e' } }, decimalsInFloat: 2 }
+                        ],
+                        tooltip: { shared: true, intersect: false, theme: isDark ? 'dark' : 'light' },
+                        legend: { position: 'top', horizontalAlign: 'right', labels: { colors: isDark ? '#fff' : '#000' } },
+                        grid: { borderColor: isDark ? '#334155' : '#e2e8f0', strokeDashArray: 3 }
+                    };
+                    apexChartInstance = new ApexCharts(document.querySelector("#apex-chart-container"), options);
+                    apexChartInstance.render();
+                } else {
+                    apexChartInstance.updateOptions({
+                        xaxis: { categories: sliceCats, labels: { style: { colors: isDark ? '#94a3b8' : '#475569', fontSize: '11px' } } },
+                        yaxis: [
+                            { title: { text: currentChartMode, style: { color: indColor } }, labels: { style: { colors: indColor } }, decimalsInFloat: 2 },
+                            { opposite: true, title: { text: 'LTP', style: { color: '#22c55e' } }, labels: { style: { colors: '#22c55e' } }, decimalsInFloat: 2 }
+                        ],
+                        colors: [indColor, '#22c55e'],
+                        grid: { borderColor: isDark ? '#334155' : '#e2e8f0', strokeDashArray: 3 },
+                        tooltip: { theme: isDark ? 'dark' : 'light' },
+                        legend: { labels: { colors: isDark ? '#fff' : '#000' } }
+                    }, false, false);
+
+                    apexChartInstance.updateSeries([
+                        { name: currentChartMode, data: sliceInd },
+                        { name: 'LTP', data: sliceLtp }
+                    ], false);
+                }
+            } catch (err) {
+                console.error("ApexCharts rendering error: ", err);
             }
         }
 
@@ -389,61 +404,69 @@
             const sliderEl = document.getElementById('html-slider');
             if (sliderEl && sliderEl.noUiSlider && cachedTimeCategories.length > 0) {
                 sliderEl.noUiSlider.set([0, cachedTimeCategories.length - 1]);
-                renderApexChart(cachedTimeCategories, cachedIndicatorValues, cachedLtpValues, 0, cachedTimeCategories.length - 1);
+                renderApexChart(cachedTimeCategories, cachedIndicatorValues, cachedLtpValues, 0, cachedTimeCategories.length - 1, false);
             }
         }
 
         function runTrendScanner() {
-            if (Object.keys(groupedChartData).length === 0 || globalDashboardData.length === 0) return;
-            
-            let latestLookup = {};
-            globalDashboardData.forEach(item => { latestLookup[item.SYMS || item.SYMBOL] = item; });
-            
-            let bullishRows = [], bearishRows = [];
-
-            Object.keys(groupedChartData).forEach(sym => {
-                let sdf = groupedChartData[sym];
-                if (sdf.length < 5) return;
-
-                let volSeries = sdf.map(i => parseFloat(i['VOL CPR'] || 0));
-                let lastVol = volSeries[volSeries.length - 1];
-                let firstVol = (volSeries[0] + volSeries[1] + volSeries[2] + volSeries[3]) / 4;
-                let maxVol = Math.max(...volSeries);
-                let minVol = Math.min(...volSeries);
-
-                let info = latestLookup[sym] || {};
-                let ceCon = parseFloat(info.CE_CON || 0);
-                let peCon = parseFloat(info.PE_CON || 0);
-
-                if (lastVol > firstVol && lastVol >= maxVol * 0.75 && ceCon >= 70) {
-                    bullishRows.push({ sym, chg: info['CHG_%'] || 0, pcr: info['O_PCR'] || 0, cpr: info['V_CPR'] || 0, ce: ceCon });
-                }
-                if (lastVol < firstVol && lastVol <= minVol * 1.25 && peCon >= 70) {
-                    bearishRows.push({ sym, chg: info['CHG_%'] || 0, pcr: info['O_PCR'] || 0, cpr: info['V_CPR'] || 0, pe: peCon });
-                }
-            });
-
-            let bHtml = `<table class="w-full text-xs text-center"><tr class="bg-blue-900 text-white border-b border-blue-800"><th class="p-2.5">SYMBOL</th><th class="p-2.5">CHANGE %</th><th class="p-2.5">OPT PCR</th><th class="p-2.5">VOL CPR</th><th class="p-2.5">CE CONTRACT</th></tr>`;
-            if(bullishRows.length === 0) {
-                bHtml += `<tr><td colspan="5" class="p-6 text-slate-400">No Bullish Stocks Matched</td></tr>`;
-            } else {
-                bullishRows.sort((a,b) => b.ce - a.ce).forEach(r => {
-                    bHtml += `<tr class="border-b border-slate-200 dark:border-slate-800"><td class="p-2.5 font-bold">${r.sym}</td><td class="p-2.5 text-green-600 dark:text-green-400 font-bold">+${Number(r.chg).toFixed(2)}%</td><td class="p-2.5">${Number(r.pcr).toFixed(2)}</td><td class="p-2.5">${Number(r.cpr).toFixed(2)}</td><td class="p-2.5 text-green-600 dark:text-green-400 font-bold">+${Number(r.ce).toFixed(1)}%</td></tr>`;
-                });
+            if (Object.keys(groupedChartData).length === 0 || globalDashboardData.length === 0) {
+                document.getElementById('subtab-bullish').innerHTML = `<p class="text-slate-400 text-xs text-center p-4">Waiting for data...</p>`;
+                document.getElementById('subtab-bearish').innerHTML = `<p class="text-slate-400 text-xs text-center p-4">Waiting for data...</p>`;
+                return;
             }
-            bHtml += `</table>`;
-            document.getElementById('subtab-bullish').innerHTML = bHtml;
+            
+            try {
+                let latestLookup = {};
+                globalDashboardData.forEach(item => { latestLookup[item.SYMS || item.SYMBOL] = item; });
+                
+                let bullishRows = [], bearishRows = [];
 
-            let rHtml = `<table class="w-full text-xs text-center"><tr class="bg-blue-900 text-white border-b border-blue-800"><th class="p-2.5">SYMBOL</th><th class="p-2.5">CHANGE %</th><th class="p-2.5">OPT PCR</th><th class="p-2.5">VOL CPR</th><th class="p-2.5">PE CONTRACT</th></tr>`;
-            if(bearishRows.length === 0) {
-                rHtml += `<tr><td colspan="5" class="p-6 text-slate-400">No Bearish Stocks Matched</td></tr>`;
-            } else {
-                bearishRows.sort((a,b) => b.pe - a.pe).forEach(r => {
-                    rHtml += `<tr class="border-b border-slate-200 dark:border-slate-800"><td class="p-2.5 font-bold">${r.sym}</td><td class="p-2.5 text-red-600 dark:text-red-400 font-bold">${Number(r.chg).toFixed(2)}%</td><td class="p-2.5">${Number(r.pcr).toFixed(2)}</td><td class="p-2.5">${Number(r.cpr).toFixed(2)}</td><td class="p-2.5 text-red-600 dark:text-red-400 font-bold">+${Number(r.pe).toFixed(1)}%</td></tr>`;
+                Object.keys(groupedChartData).forEach(sym => {
+                    let sdf = groupedChartData[sym];
+                    if (!sdf || sdf.length < 5) return;
+
+                    let volSeries = sdf.map(i => parseFloat(i['VOL CPR'] || i['Vol CPR'] || 0));
+                    let lastVol = volSeries[volSeries.length - 1];
+                    let firstVol = (volSeries[0] + volSeries[1] + volSeries[2] + volSeries[3]) / 4;
+                    let maxVol = Math.max(...volSeries);
+                    let minVol = Math.min(...volSeries);
+
+                    let info = latestLookup[sym] || {};
+                    let ceCon = parseFloat(info.CE_CON || 0);
+                    let peCon = parseFloat(info.PE_CON || 0);
+
+                    if (lastVol > firstVol && lastVol >= maxVol * 0.75 && ceCon >= 70) {
+                        bullishRows.push({ sym, chg: info['CHG_%'] || 0, pcr: info['O_PCR'] || 0, cpr: info['V_CPR'] || 0, ce: ceCon });
+                    }
+                    if (lastVol < firstVol && lastVol <= minVol * 1.25 && peCon >= 70) {
+                        bearishRows.push({ sym, chg: info['CHG_%'] || 0, pcr: info['O_PCR'] || 0, cpr: info['V_CPR'] || 0, pe: peCon });
+                    }
                 });
+
+                let bHtml = `<table class="w-full text-xs text-center"><tr class="bg-blue-900 text-white border-b border-blue-800"><th class="p-2.5">SYMBOL</th><th class="p-2.5">CHANGE %</th><th class="p-2.5">OPT PCR</th><th class="p-2.5">VOL CPR</th><th class="p-2.5">CE CONTRACT</th></tr>`;
+                if(bullishRows.length === 0) {
+                    bHtml += `<tr><td colspan="5" class="p-6 text-slate-400">No Bullish Stocks Matched</td></tr>`;
+                } else {
+                    bullishRows.sort((a,b) => b.ce - a.ce).forEach(r => {
+                        bHtml += `<tr class="border-b border-slate-200 dark:border-slate-800"><td class="p-2.5 font-bold">${r.sym}</td><td class="p-2.5 text-green-600 dark:text-green-400 font-bold">+${Number(r.chg).toFixed(2)}%</td><td class="p-2.5">${Number(r.pcr).toFixed(2)}</td><td class="p-2.5">${Number(r.cpr).toFixed(2)}</td><td class="p-2.5 text-green-600 dark:text-green-400 font-bold">+${Number(r.ce).toFixed(1)}%</td></tr>`;
+                    });
+                }
+                bHtml += `</table>`;
+                document.getElementById('subtab-bullish').innerHTML = bHtml;
+
+                let rHtml = `<table class="w-full text-xs text-center"><tr class="bg-blue-900 text-white border-b border-blue-800"><th class="p-2.5">SYMBOL</th><th class="p-2.5">CHANGE %</th><th class="p-2.5">OPT PCR</th><th class="p-2.5">VOL CPR</th><th class="p-2.5">PE CONTRACT</th></tr>`;
+                if(bearishRows.length === 0) {
+                    rHtml += `<tr><td colspan="5" class="p-6 text-slate-400">No Bearish Stocks Matched</td></tr>`;
+                } else {
+                    bearishRows.sort((a,b) => b.pe - a.pe).forEach(r => {
+                        rHtml += `<tr class="border-b border-slate-200 dark:border-slate-800"><td class="p-2.5 font-bold">${r.sym}</td><td class="p-2.5 text-red-600 dark:text-red-400 font-bold">${Number(r.chg).toFixed(2)}%</td><td class="p-2.5">${Number(r.pcr).toFixed(2)}</td><td class="p-2.5">${Number(r.cpr).toFixed(2)}</td><td class="p-2.5 text-red-600 dark:text-red-400 font-bold">+${Number(r.pe).toFixed(1)}%</td></tr>`;
+                    });
+                }
+                rHtml += `</table>`;
+                document.getElementById('subtab-bearish').innerHTML = rHtml;
+            } catch (err) {
+                console.error("Trend Scanner Error:", err);
             }
-            rHtml += `</table>`;
-            document.getElementById('subtab-bearish').innerHTML = rHtml;
         }
 
         function renderDashboard() {
